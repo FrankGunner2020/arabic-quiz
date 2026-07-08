@@ -5,7 +5,7 @@
 function normalizeAnswer(str) {
   return str
     .toLowerCase()
-    .replace(/['’]/g, "")
+    .replace(/['’‘ʼ]/g, "")
     .trim()
     .replace(/\s+/g, " ")
     .replace(/oo/g, "u")
