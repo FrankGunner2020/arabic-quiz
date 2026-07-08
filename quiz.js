@@ -126,6 +126,7 @@
     unlockBanner: document.getElementById("unlock-banner"),
     unlockSwitch: document.getElementById("unlock-switch"),
     unlockDismiss: document.getElementById("unlock-dismiss"),
+    stageLabel: document.getElementById("stage-label"),
     gloss: document.getElementById("gloss"),
     prompt: document.getElementById("prompt"),
     form: document.getElementById("answer-form"),
@@ -149,6 +150,11 @@
       state.totalAnswered === 0
         ? "—"
         : Math.round((state.totalCorrect / state.totalAnswered) * 100) + "%";
+  }
+
+  function renderStageLabel() {
+    els.stageLabel.textContent =
+      state.stage === "infinitive" ? "Level 1 — infinitives only" : "Level 2 — all forms";
   }
 
   function renderStageToggle() {
@@ -242,6 +248,7 @@
 
   function renderAll() {
     renderStats();
+    renderStageLabel();
     renderStageToggle();
     renderMasteryGrid();
     renderExportSection();
