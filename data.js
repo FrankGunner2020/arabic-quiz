@@ -175,7 +175,12 @@ const VERBS = [
 ];
 
 // Flatten VERBS into individual quiz items. `stage` is either "infinitive"
-// or "form" so the app can filter by the active stage.
+// or "form" so the app can filter by item type; `level` is the tier the item
+// belongs to (1: infinitives, 2: ana/anta/huwa, 3: nahnu/antum/hum) so the
+// app can filter by the active level. PERSONS[0..2] (ech/du/hien-hatt, i.e.
+// ana/anta/huwa) are level 2; PERSONS[3..5] (mir/dir/si, i.e.
+// nahnu/antum/hum) are level 3 -- structured now as the extension point for
+// a future Level 3 unlock, not yet reachable in the UI.
 //
 // `answer` is the primary grading target (verb-only for conjugated forms,
 // since the Lëtzebuergesch prompt already establishes the subject).
@@ -190,6 +195,7 @@ function buildItems() {
       id: `${verb.id}.inf`,
       verbId: verb.id,
       stage: "infinitive",
+      level: 1,
       prompt: verb.infinitive.lb,
       gloss: verb.infinitive.en,
       answer: verb.infinitive.ar,
@@ -201,6 +207,7 @@ function buildItems() {
         id: `${verb.id}.${PERSONS[i]}`,
         verbId: verb.id,
         stage: "form",
+        level: i < 3 ? 2 : 3,
         prompt: form.lb,
         gloss: verb.infinitive.en,
         answer: form.arVerb,

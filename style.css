@@ -104,76 +104,6 @@ body {
   letter-spacing: 0.08em;
 }
 
-/* stage toggle */
-
-.stage-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 16px;
-}
-
-.stage-toggle {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--ink-dim);
-  font-family: var(--sans);
-  font-size: 0.75rem;
-  padding: 6px 12px;
-  cursor: pointer;
-  letter-spacing: 0.02em;
-}
-
-.stage-toggle:hover:not(:disabled) {
-  border-color: var(--arabic);
-  color: var(--arabic);
-}
-
-.stage-toggle:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* unlock banner */
-
-.unlock-banner {
-  border: 1px solid var(--arabic);
-  background: var(--surface);
-  padding: 16px 20px;
-  margin-bottom: 24px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  justify-content: space-between;
-}
-
-.unlock-banner[hidden] {
-  display: none;
-}
-
-.unlock-banner p {
-  margin: 0;
-  font-family: var(--sans);
-  font-size: 0.85rem;
-  color: var(--ink);
-  flex: 1 1 240px;
-}
-
-.unlock-banner button {
-  font-family: var(--sans);
-  font-size: 0.75rem;
-  padding: 6px 14px;
-  border: 1px solid var(--arabic);
-  background: none;
-  color: var(--arabic);
-  cursor: pointer;
-}
-
-.unlock-banner button.ghost {
-  border-color: var(--border);
-  color: var(--ink-dim);
-}
-
 /* quiz card */
 
 .quiz-card {
@@ -184,18 +114,28 @@ body {
   margin-bottom: 48px;
 }
 
-.stage-label {
-  display: inline-block;
+.level-label {
   font-family: var(--sans);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 500;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 20px;
+}
+
+.level-up-message {
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  font-weight: 600;
   color: var(--arabic);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 4px 14px;
-  letter-spacing: 0.03em;
-  margin: 0 0 24px;
+  background: var(--row-stripe);
+  padding: 8px 14px;
+  margin: 0 0 20px;
+}
+
+.level-up-message[hidden] {
+  display: none;
 }
 
 .gloss {

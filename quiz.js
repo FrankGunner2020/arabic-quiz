@@ -2,22 +2,33 @@
   "use strict";
 
   const STORAGE_KEY = "arabic-quiz-state-v1";
-  const UNLOCK_STREAK = 2; // infinitive streak needed to unlock the all-forms stage
+  const UNLOCK_STREAK = 2; // correct-in-a-row streak needed to unlock the next level
   const MASTERY_STREAK = 2; // streak needed for an item to count toward a verb milestone
 
-  const INFINITIVE_ITEMS = ITEMS.filter((item) => item.stage === "infinitive");
+  const LEVEL1_ITEMS = ITEMS.filter((item) => item.level === 1);
+  const LEVEL2_ITEMS = ITEMS.filter((item) => item.level === 2);
+  // Level 3 (nahnu/antum/hum) mirrors Level 2's shape but has no unlock path
+  // wired up yet. Extension point: once LEVEL2_ITEMS are all mastered (same
+  // UNLOCK_STREAK pattern as the Level 1 -> 2 check in checkLevelUp below),
+  // set state.level = 3 there and return true the same way.
+  const LEVEL3_ITEMS = ITEMS.filter((item) => item.level === 3);
+
+  const LEVEL_POOLS = { 1: LEVEL1_ITEMS, 2: LEVEL2_ITEMS, 3: LEVEL3_ITEMS };
+  const LEVEL_LABELS = {
+    1: "Level 1 — infinitives",
+    2: "Level 2 — ana, anta, huwa",
+    3: "Level 3 — nahnu, antum, hum",
+  };
 
   // ---------- state ----------
 
   function defaultState() {
     return {
-      stage: "infinitive", // "infinitive" | "all"
+      level: 1, // 1 | 2 | 3 (3 has no unlock path yet, see LEVEL3_ITEMS above)
       items: {}, // id -> { correct, incorrect, streak }
       totalAnswered: 0,
       totalCorrect: 0,
       currentStreak: 0,
-      hasUnlockedForms: false,
-      bannerDismissed: false,
       milestones: [], // verb ids that have reached full mastery (historical, never removed)
       pendingExport: [], // milestones not yet copied into progress-log.json
     };
@@ -44,6 +55,19 @@
     return state.items[id] || { correct: 0, incorrect: 0, streak: 0 };
   }
 
+  function checkLevelUp() {
+    if (state.level === 1) {
+      const allMastered = LEVEL1_ITEMS.every(
+        (item) => getItemStats(item.id).streak >= UNLOCK_STREAK
+      );
+      if (allMastered) {
+        state.level = 2;
+        return true;
+      }
+    }
+    return false;
+  }
+
   function recordAnswer(id, isCorrect) {
     const stats = getItemStats(id);
     if (isCorrect) {
@@ -63,9 +87,10 @@
       state.currentStreak = 0;
     }
 
-    checkUnlock();
+    const leveledUp = checkLevelUp();
     checkMilestones();
     saveState();
+    return leveledUp;
   }
 
   function checkMilestones() {
@@ -85,21 +110,10 @@
     });
   }
 
-  function checkUnlock() {
-    if (state.hasUnlockedForms) return;
-    const allMastered = INFINITIVE_ITEMS.every(
-      (item) => getItemStats(item.id).streak >= UNLOCK_STREAK
-    );
-    if (allMastered) {
-      state.hasUnlockedForms = true;
-      state.bannerDismissed = false;
-    }
-  }
-
   // ---------- item selection ----------
 
   function activePool() {
-    return state.stage === "infinitive" ? INFINITIVE_ITEMS : ITEMS;
+    return LEVEL_POOLS[state.level] || LEVEL1_ITEMS;
   }
 
   function pickNextItem() {
@@ -122,11 +136,8 @@
     statStreak: document.getElementById("stat-streak"),
     statAccuracy: document.getElementById("stat-accuracy"),
     statTotal: document.getElementById("stat-total"),
-    stageToggle: document.getElementById("stage-toggle"),
-    unlockBanner: document.getElementById("unlock-banner"),
-    unlockSwitch: document.getElementById("unlock-switch"),
-    unlockDismiss: document.getElementById("unlock-dismiss"),
-    stageLabel: document.getElementById("stage-label"),
+    levelLabel: document.getElementById("level-label"),
+    levelUpMessage: document.getElementById("level-up-message"),
     gloss: document.getElementById("gloss"),
     prompt: document.getElementById("prompt"),
     form: document.getElementById("answer-form"),
@@ -151,32 +162,14 @@
         : Math.round((state.totalCorrect / state.totalAnswered) * 100) + "%";
   }
 
-  function renderStageLabel() {
-    els.stageLabel.textContent =
-      state.stage === "infinitive" ? "Level 1 — infinitives only" : "Level 2 — all forms";
-  }
-
-  function renderStageToggle() {
-    if (state.stage === "infinitive") {
-      els.stageToggle.textContent = "All forms →";
-      els.stageToggle.disabled = !state.hasUnlockedForms;
-      els.stageToggle.title = state.hasUnlockedForms
-        ? ""
-        : "Answer every infinitive correctly twice in a row to unlock";
-    } else {
-      els.stageToggle.textContent = "← Infinitives only";
-      els.stageToggle.disabled = false;
-      els.stageToggle.title = "";
-    }
-
-    const showBanner =
-      state.hasUnlockedForms && state.stage === "infinitive" && !state.bannerDismissed;
-    els.unlockBanner.hidden = !showBanner;
+  function renderLevelLabel() {
+    els.levelLabel.textContent = LEVEL_LABELS[state.level] || "";
   }
 
   function renderQuestion() {
     currentItem = pickNextItem();
     awaitingNext = false;
+    els.levelUpMessage.hidden = true;
     els.gloss.textContent = currentItem.gloss;
     els.prompt.textContent = currentItem.prompt;
     els.input.value = "";
@@ -201,8 +194,7 @@
 
   function renderAll() {
     renderStats();
-    renderStageLabel();
-    renderStageToggle();
+    renderLevelLabel();
     renderExportSection();
   }
 
@@ -216,19 +208,24 @@
       if (!value) return;
 
       const correct = isCorrectForItem(value, currentItem);
-      recordAnswer(currentItem.id, correct);
+      const leveledUp = recordAnswer(currentItem.id, correct);
 
       els.feedback.className = "feedback " + (correct ? "correct" : "incorrect");
       els.feedback.textContent = correct
         ? "Correct."
         : `Not quite — ${currentItem.displayAnswer}`;
 
+      if (leveledUp) {
+        els.levelUpMessage.textContent = `Level ${state.level} unlocked`;
+        els.levelUpMessage.hidden = false;
+      }
+
       els.input.disabled = true;
       els.submitBtn.textContent = "Next";
       awaitingNext = true;
 
       renderStats();
-      renderStageToggle();
+      renderLevelLabel();
       renderExportSection();
       els.submitBtn.focus();
     } else {
@@ -244,28 +241,6 @@
     state.pendingExport = [];
     saveState();
     renderExportSection();
-  });
-
-  els.stageToggle.addEventListener("click", function () {
-    if (els.stageToggle.disabled) return;
-    state.stage = state.stage === "infinitive" ? "all" : "infinitive";
-    saveState();
-    renderAll();
-    renderQuestion();
-  });
-
-  els.unlockSwitch.addEventListener("click", function () {
-    state.stage = "all";
-    state.bannerDismissed = true;
-    saveState();
-    renderAll();
-    renderQuestion();
-  });
-
-  els.unlockDismiss.addEventListener("click", function () {
-    state.bannerDismissed = true;
-    saveState();
-    renderStageToggle();
   });
 
   // ---------- init ----------
