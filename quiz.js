@@ -205,7 +205,8 @@
       const barTrack = document.createElement("div");
       barTrack.className = "mastery-bar-track";
       const bar = document.createElement("div");
-      bar.className = "mastery-bar-fill";
+      bar.className =
+        "mastery-bar-fill" + (masteredCount === ids.length ? " mastered" : "");
       bar.style.width = percent + "%";
       barTrack.appendChild(bar);
 

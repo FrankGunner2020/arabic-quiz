@@ -1,16 +1,20 @@
 @import url("https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
 :root {
-  --bg: #0a0e14;
-  --bg-raised: #10151d;
-  --border: #1e2733;
-  --ink: #ece6da;
-  --ink-dim: #8b93a1;
-  --accent: #7fa8c9;
-  --correct: #6f9c7a;
-  --incorrect: #b06a63;
+  --bg: #faf7f1;
+  --surface: #ffffff;
+  --border: #e7e1d4;
+  --ink: #24303f;
+  --ink-dim: #7c8798;
+  --accent: #2b5f8a;
+  --correct: #4f7b5b;
+  --correct-bg: #eaf3ea;
+  --incorrect: #b5573f;
+  --incorrect-bg: #f7eae6;
 
   --serif: "Source Serif 4", Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 
@@ -48,10 +52,11 @@ body {
   font-size: 2rem;
   letter-spacing: 0.01em;
   margin: 0 0 8px;
+  color: var(--ink);
 }
 
 .subtitle {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 0.8rem;
   color: var(--ink-dim);
   margin: 0;
@@ -78,13 +83,14 @@ body {
 }
 
 .stat-value {
-  font-family: var(--mono);
+  font-family: var(--sans);
+  font-weight: 600;
   font-size: 1.25rem;
   color: var(--ink);
 }
 
 .stat-label {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 0.68rem;
   color: var(--ink-dim);
   text-transform: uppercase;
@@ -103,7 +109,7 @@ body {
   background: none;
   border: 1px solid var(--border);
   color: var(--ink-dim);
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 0.75rem;
   padding: 6px 12px;
   cursor: pointer;
@@ -124,7 +130,7 @@ body {
 
 .unlock-banner {
   border: 1px solid var(--accent);
-  background: var(--bg-raised);
+  background: var(--surface);
   padding: 16px 20px;
   margin-bottom: 24px;
   display: flex;
@@ -140,13 +146,14 @@ body {
 
 .unlock-banner p {
   margin: 0;
+  font-family: var(--sans);
   font-size: 0.85rem;
   color: var(--ink);
   flex: 1 1 240px;
 }
 
 .unlock-banner button {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 0.75rem;
   padding: 6px 14px;
   border: 1px solid var(--accent);
@@ -163,14 +170,15 @@ body {
 /* quiz card */
 
 .quiz-card {
+  background: var(--surface);
   border: 1px solid var(--border);
-  padding: 48px 32px;
+  padding: 64px 40px;
   text-align: center;
   margin-bottom: 48px;
 }
 
 .gloss {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 0.75rem;
   color: var(--ink-dim);
   letter-spacing: 0.04em;
@@ -179,9 +187,9 @@ body {
 
 .prompt {
   font-family: var(--serif);
-  font-size: 2.25rem;
+  font-size: 2.75rem;
   color: var(--ink);
-  margin: 0 0 36px;
+  margin: 0 0 40px;
 }
 
 #answer-form {
@@ -193,7 +201,7 @@ body {
 #answer-input {
   font-family: var(--mono);
   font-size: 1rem;
-  background: var(--bg-raised);
+  background: var(--bg);
   border: 1px solid var(--border);
   color: var(--accent);
   padding: 12px 14px;
@@ -210,7 +218,7 @@ body {
 }
 
 #answer-form button {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 0.85rem;
   background: none;
   border: 1px solid var(--ink-dim);
@@ -227,28 +235,37 @@ body {
 .feedback {
   min-height: 1.5em;
   margin: 24px 0 0;
-  font-family: var(--mono);
-  font-size: 0.9rem;
+  font-family: var(--serif);
+  font-size: 0.95rem;
+  padding: 0;
+}
+
+.feedback.correct,
+.feedback.incorrect {
+  display: inline-block;
+  padding: 8px 16px;
 }
 
 .feedback.correct {
   color: var(--correct);
+  background: var(--correct-bg);
 }
 
 .feedback.incorrect {
   color: var(--incorrect);
+  background: var(--incorrect-bg);
 }
 
 /* mastery grid */
 
 .mastery-heading {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 0.75rem;
   color: var(--ink-dim);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin: 0 0 20px;
-  font-weight: 400;
+  font-weight: 600;
 }
 
 .mastery-grid {
@@ -280,8 +297,12 @@ body {
   background: var(--accent);
 }
 
+.mastery-bar-fill.mastered {
+  background: var(--correct);
+}
+
 .mastery-count {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 0.7rem;
   color: var(--ink-dim);
   text-align: right;
@@ -296,16 +317,17 @@ body {
 }
 
 .export-heading {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 0.75rem;
   color: var(--ink-dim);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin: 0 0 12px;
-  font-weight: 400;
+  font-weight: 600;
 }
 
 .export-copy-text {
+  font-family: var(--sans);
   font-size: 0.85rem;
   color: var(--ink-dim);
   margin: 0 0 12px;
@@ -320,7 +342,7 @@ body {
   width: 100%;
   font-family: var(--mono);
   font-size: 0.8rem;
-  background: var(--bg-raised);
+  background: var(--surface);
   border: 1px solid var(--border);
   color: var(--accent);
   padding: 12px;
@@ -334,7 +356,7 @@ body {
 }
 
 .export-actions button {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 0.75rem;
   padding: 8px 16px;
   border: 1px solid var(--ink-dim);
@@ -354,8 +376,12 @@ body {
 }
 
 @media (max-width: 480px) {
+  .quiz-card {
+    padding: 48px 24px;
+  }
+
   .prompt {
-    font-size: 1.75rem;
+    font-size: 2.1rem;
   }
 
   #answer-form {
