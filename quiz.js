@@ -96,50 +96,6 @@
     }
   }
 
-  // ---------- answer matching ----------
-
-  function normalizeAnswer(str) {
-    return str
-      .toLowerCase()
-      .replace(/['’]/g, "")
-      .trim()
-      .replace(/\s+/g, " ")
-      .replace(/oo/g, "u")
-      .replace(/aa/g, "a");
-  }
-
-  function levenshtein(a, b) {
-    const m = a.length;
-    const n = b.length;
-    const dp = new Array(n + 1);
-    for (let j = 0; j <= n; j++) dp[j] = j;
-
-    for (let i = 1; i <= m; i++) {
-      let prev = dp[0];
-      dp[0] = i;
-      for (let j = 1; j <= n; j++) {
-        const temp = dp[j];
-        if (a[i - 1] === b[j - 1]) {
-          dp[j] = prev;
-        } else {
-          dp[j] = 1 + Math.min(prev, dp[j], dp[j - 1]);
-        }
-        prev = temp;
-      }
-    }
-    return dp[n];
-  }
-
-  function isAnswerCorrect(input, correct) {
-    const normInput = normalizeAnswer(input);
-    const normCorrect = normalizeAnswer(correct);
-    if (normInput === normCorrect) return true;
-    if (normCorrect.length >= 5 && levenshtein(normInput, normCorrect) <= 1) {
-      return true;
-    }
-    return false;
-  }
-
   // ---------- item selection ----------
 
   function activePool() {
@@ -292,13 +248,13 @@
       const value = els.input.value.trim();
       if (!value) return;
 
-      const correct = isAnswerCorrect(value, currentItem.answer);
+      const correct = isCorrectForItem(value, currentItem);
       recordAnswer(currentItem.id, correct);
 
       els.feedback.className = "feedback " + (correct ? "correct" : "incorrect");
       els.feedback.textContent = correct
         ? "Correct."
-        : `Not quite — ${currentItem.answer}`;
+        : `Not quite — ${currentItem.displayAnswer}`;
 
       els.input.disabled = true;
       els.submitBtn.textContent = "Next";
