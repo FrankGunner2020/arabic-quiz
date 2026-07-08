@@ -3,7 +3,7 @@
 
   const STORAGE_KEY = "arabic-quiz-state-v1";
   const UNLOCK_STREAK = 2; // infinitive streak needed to unlock the all-forms stage
-  const MASTERY_STREAK = 2; // streak needed for an item to count as "mastered" in the grid
+  const MASTERY_STREAK = 2; // streak needed for an item to count toward a verb milestone
 
   const INFINITIVE_ITEMS = ITEMS.filter((item) => item.stage === "infinitive");
 
@@ -133,7 +133,6 @@
     input: document.getElementById("answer-input"),
     submitBtn: document.querySelector("#answer-form button[type=submit]"),
     feedback: document.getElementById("feedback"),
-    masteryGrid: document.getElementById("mastery-grid"),
     exportSection: document.getElementById("export-section"),
     exportJson: document.getElementById("export-json"),
     exportCopy: document.getElementById("export-copy"),
@@ -188,52 +187,6 @@
     els.input.focus();
   }
 
-  function renderMasteryGrid() {
-    els.masteryGrid.innerHTML = "";
-    VERBS.forEach((verb) => {
-      const ids =
-        state.stage === "infinitive"
-          ? [`${verb.id}.inf`]
-          : ITEMS.filter((item) => item.verbId === verb.id).map((item) => item.id);
-
-      const masteredCount = ids.filter(
-        (id) => getItemStats(id).streak >= MASTERY_STREAK
-      ).length;
-      // Bar fill tracks fractional streak progress per item (not just fully
-      // mastered items) so it visibly moves after every single answer,
-      // rather than jumping only when an item crosses MASTERY_STREAK.
-      const progress = ids.reduce(
-        (sum, id) => sum + Math.min(getItemStats(id).streak, MASTERY_STREAK) / MASTERY_STREAK,
-        0
-      );
-      const percent = Math.round((progress / ids.length) * 100);
-
-      const row = document.createElement("div");
-      row.className = "mastery-row";
-
-      const label = document.createElement("div");
-      label.className = "mastery-label";
-      label.textContent = verb.infinitive.lb;
-
-      const barTrack = document.createElement("div");
-      barTrack.className = "mastery-bar-track";
-      const bar = document.createElement("div");
-      bar.className =
-        "mastery-bar-fill" + (masteredCount === ids.length ? " mastered" : "");
-      bar.style.width = percent + "%";
-      barTrack.appendChild(bar);
-
-      const count = document.createElement("div");
-      count.className = "mastery-count";
-      count.textContent = `${masteredCount}/${ids.length}`;
-
-      row.appendChild(label);
-      row.appendChild(barTrack);
-      row.appendChild(count);
-      els.masteryGrid.appendChild(row);
-    });
-  }
-
   function renderExportSection() {
     const hasPending = state.pendingExport.length > 0;
     els.exportSection.hidden = !hasPending;
@@ -250,7 +203,6 @@
     renderStats();
     renderStageLabel();
     renderStageToggle();
-    renderMasteryGrid();
     renderExportSection();
   }
 
@@ -277,7 +229,6 @@
 
       renderStats();
       renderStageToggle();
-      renderMasteryGrid();
       renderExportSection();
       els.submitBtn.focus();
     } else {
