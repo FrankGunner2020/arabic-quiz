@@ -62,6 +62,19 @@
     <div class="mastery-grid" id="mastery-grid"></div>
   </section>
 
+  <section class="export-section" id="export-section" hidden>
+    <h2 class="export-heading">New milestones</h2>
+    <p class="export-copy-text">
+      Paste this into <code>progress-log.json</code> and commit it to keep a
+      record of your progress.
+    </p>
+    <textarea id="export-json" class="export-json" readonly rows="6"></textarea>
+    <div class="export-actions">
+      <button id="export-copy" type="button">Copy</button>
+      <button id="export-mark-done" type="button" class="ghost">I've saved this</button>
+    </div>
+  </section>
+
 </div>
 
 <script src="data.js"></script>

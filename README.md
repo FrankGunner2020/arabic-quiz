@@ -52,6 +52,15 @@ bar. On the infinitives stage that's just "is the infinitive mastered
 (streak ≥ 2)?" On the all-forms stage it aggregates all 7 items per verb (the
 infinitive plus its 6 conjugations).
 
+**Progress milestones live in git, not just localStorage.** Since this is a
+static site with no backend, the app can't write to the repo on its own.
+Instead, whenever a verb reaches full mastery (all 7 of its items — the
+infinitive plus 6 conjugations — at streak ≥ 2), a "New milestones" panel
+appears below the mastery grid with a ready-to-paste JSON snippet. Copy it
+into [`progress-log.json`](progress-log.json) and commit — that's what turns
+"I actually learned this" into a real, dated entry in the git history,
+alongside the code changes.
+
 ## Data model
 
 All quiz content lives in [`data.js`](data.js). Each of the 13 verbs is an
@@ -80,10 +89,11 @@ per infinitive and per conjugated form — each with a stable id of the shape
 ## Files
 
 ```
-index.html   markup: stats bar, stage toggle, quiz card, mastery grid
-style.css    dark editorial theme
-data.js      the 13 verbs, their forms, and the ITEMS flattening
-quiz.js      answer matching, item selection, stats, persistence, rendering
+index.html         markup: stats bar, stage toggle, quiz card, mastery grid
+style.css          dark editorial theme
+data.js            the 13 verbs, their forms, and the ITEMS flattening
+quiz.js            answer matching, item selection, stats, persistence, rendering
+progress-log.json  dated record of verbs reaching full mastery
 ```
 
 No build step, no framework, no backend. Open `index.html` or serve the

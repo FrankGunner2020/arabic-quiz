@@ -18,6 +18,8 @@
       currentStreak: 0,
       hasUnlockedForms: false,
       bannerDismissed: false,
+      milestones: [], // verb ids that have reached full mastery (historical, never removed)
+      pendingExport: [], // milestones not yet copied into progress-log.json
     };
   }
 
@@ -62,7 +64,25 @@
     }
 
     checkUnlock();
+    checkMilestones();
     saveState();
+  }
+
+  function checkMilestones() {
+    VERBS.forEach((verb) => {
+      if (state.milestones.includes(verb.id)) return;
+      const ids = [`${verb.id}.inf`, ...PERSONS.map((p) => `${verb.id}.${p}`)];
+      const fullyMastered = ids.every(
+        (id) => getItemStats(id).streak >= MASTERY_STREAK
+      );
+      if (fullyMastered) {
+        state.milestones.push(verb.id);
+        state.pendingExport.push({
+          verbId: verb.id,
+          achievedAt: new Date().toISOString().slice(0, 10),
+        });
+      }
+    });
   }
 
   function checkUnlock() {
@@ -157,6 +177,10 @@
     submitBtn: document.querySelector("#answer-form button[type=submit]"),
     feedback: document.getElementById("feedback"),
     masteryGrid: document.getElementById("mastery-grid"),
+    exportSection: document.getElementById("export-section"),
+    exportJson: document.getElementById("export-json"),
+    exportCopy: document.getElementById("export-copy"),
+    exportMarkDone: document.getElementById("export-mark-done"),
   };
 
   let currentItem = null;
@@ -240,10 +264,23 @@
     });
   }
 
+  function renderExportSection() {
+    const hasPending = state.pendingExport.length > 0;
+    els.exportSection.hidden = !hasPending;
+    if (!hasPending) return;
+
+    const entries = state.pendingExport.map((m) => {
+      const verb = VERBS.find((v) => v.id === m.verbId);
+      return { verb: verb.id, gloss: verb.infinitive.en, masteredAt: m.achievedAt };
+    });
+    els.exportJson.value = JSON.stringify(entries, null, 2);
+  }
+
   function renderAll() {
     renderStats();
     renderStageToggle();
     renderMasteryGrid();
+    renderExportSection();
   }
 
   // ---------- events ----------
@@ -270,10 +307,21 @@
       renderStats();
       renderStageToggle();
       renderMasteryGrid();
+      renderExportSection();
       els.submitBtn.focus();
     } else {
       renderQuestion();
     }
+  });
+
+  els.exportCopy.addEventListener("click", function () {
+    navigator.clipboard.writeText(els.exportJson.value);
+  });
+
+  els.exportMarkDone.addEventListener("click", function () {
+    state.pendingExport = [];
+    saveState();
+    renderExportSection();
   });
 
   els.stageToggle.addEventListener("click", function () {
