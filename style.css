@@ -1,12 +1,16 @@
 @import url("https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
 :root {
-  --bg: #faf7f1;
+  --bg: #ffffff;
   --surface: #ffffff;
-  --border: #e7e1d4;
-  --ink: #24303f;
-  --ink-dim: #7c8798;
-  --accent: #2b5f8a;
+  --border: #9fb9dd;
+  --ink: #16233d;
+  --ink-dim: #5b7299;
+  --arabic: #3d6cb9;
+  --header-bg: #1b3a6b;
+  --header-text: #ffffff;
+  --header-text-dim: #cfe0f7;
+  --row-stripe: #eaf1fb;
   --correct: #4f7b5b;
   --correct-bg: #eaf3ea;
   --incorrect: #b5573f;
@@ -44,6 +48,9 @@ body {
 .header {
   text-align: center;
   margin-bottom: 40px;
+  background: var(--header-bg);
+  color: var(--header-text);
+  padding: 32px 24px;
 }
 
 .wordmark {
@@ -52,13 +59,13 @@ body {
   font-size: 2rem;
   letter-spacing: 0.01em;
   margin: 0 0 8px;
-  color: var(--ink);
+  color: var(--header-text);
 }
 
 .subtitle {
   font-family: var(--sans);
   font-size: 0.8rem;
-  color: var(--ink-dim);
+  color: var(--header-text-dim);
   margin: 0;
   letter-spacing: 0.02em;
 }
@@ -117,8 +124,8 @@ body {
 }
 
 .stage-toggle:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--arabic);
+  color: var(--arabic);
 }
 
 .stage-toggle:disabled {
@@ -129,7 +136,7 @@ body {
 /* unlock banner */
 
 .unlock-banner {
-  border: 1px solid var(--accent);
+  border: 1px solid var(--arabic);
   background: var(--surface);
   padding: 16px 20px;
   margin-bottom: 24px;
@@ -156,9 +163,9 @@ body {
   font-family: var(--sans);
   font-size: 0.75rem;
   padding: 6px 14px;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--arabic);
   background: none;
-  color: var(--accent);
+  color: var(--arabic);
   cursor: pointer;
 }
 
@@ -182,7 +189,7 @@ body {
   font-family: var(--sans);
   font-size: 0.7rem;
   font-weight: 500;
-  color: var(--accent);
+  color: var(--arabic);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -201,6 +208,7 @@ body {
 
 .prompt {
   font-family: var(--serif);
+  font-weight: 600;
   font-size: 2.75rem;
   color: var(--ink);
   margin: 0 0 40px;
@@ -214,17 +222,18 @@ body {
 
 #answer-input {
   font-family: var(--mono);
+  font-style: italic;
   font-size: 1rem;
   background: var(--bg);
   border: 1px solid var(--border);
-  color: var(--accent);
+  color: var(--arabic);
   padding: 12px 14px;
   width: 260px;
   outline: none;
 }
 
 #answer-input:focus {
-  border-color: var(--accent);
+  border-color: var(--arabic);
 }
 
 #answer-input:disabled {
@@ -242,8 +251,8 @@ body {
 }
 
 #answer-form button:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--arabic);
+  color: var(--arabic);
 }
 
 .feedback {
@@ -293,6 +302,11 @@ body {
   grid-template-columns: 90px 1fr 44px;
   align-items: center;
   gap: 14px;
+  padding: 6px 8px;
+}
+
+.mastery-row:nth-child(even) {
+  background: var(--row-stripe);
 }
 
 .mastery-label {
@@ -308,7 +322,7 @@ body {
 
 .mastery-bar-fill {
   height: 100%;
-  background: var(--accent);
+  background: var(--arabic);
 }
 
 .mastery-bar-fill.mastered {
@@ -349,7 +363,7 @@ body {
 
 .export-copy-text code {
   font-family: var(--mono);
-  color: var(--accent);
+  color: var(--arabic);
 }
 
 .export-json {
@@ -358,7 +372,7 @@ body {
   font-size: 0.8rem;
   background: var(--surface);
   border: 1px solid var(--border);
-  color: var(--accent);
+  color: var(--arabic);
   padding: 12px;
   resize: vertical;
 }
@@ -380,8 +394,8 @@ body {
 }
 
 .export-actions button:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--arabic);
+  color: var(--arabic);
 }
 
 .export-actions button.ghost {
