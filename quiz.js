@@ -193,7 +193,14 @@
       const masteredCount = ids.filter(
         (id) => getItemStats(id).streak >= MASTERY_STREAK
       ).length;
-      const percent = Math.round((masteredCount / ids.length) * 100);
+      // Bar fill tracks fractional streak progress per item (not just fully
+      // mastered items) so it visibly moves after every single answer,
+      // rather than jumping only when an item crosses MASTERY_STREAK.
+      const progress = ids.reduce(
+        (sum, id) => sum + Math.min(getItemStats(id).streak, MASTERY_STREAK) / MASTERY_STREAK,
+        0
+      );
+      const percent = Math.round((progress / ids.length) * 100);
 
       const row = document.createElement("div");
       row.className = "mastery-row";
