@@ -9,7 +9,7 @@ Direction is always one-way, Lëtzebuergesch → Arabic phonetic, because that's
 the direction that actually trains speaking. Every question is typed, not
 multiple choice, so recall is forced rather than recognition.
 
-Live at: (added once deployed)
+Live at: https://arabic-quiz-gunner-ops.vercel.app
 
 ## Mechanics
 
