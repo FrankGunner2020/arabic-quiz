@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Arabic Quiz — Lëtzebuergesch → Arabic</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="page">
+
+  <header class="header">
+    <h1 class="wordmark">Arabic Quiz</h1>
+    <p class="subtitle">Lëtzebuergesch → Arabic, one verb at a time</p>
+  </header>
+
+  <section class="session-stats" id="session-stats">
+    <div class="stat">
+      <span class="stat-value" id="stat-streak">0</span>
+      <span class="stat-label">streak</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value" id="stat-accuracy">—</span>
+      <span class="stat-label">accuracy</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value" id="stat-total">0</span>
+      <span class="stat-label">answered</span>
+    </div>
+  </section>
+
+  <div class="stage-row">
+    <button class="stage-toggle" id="stage-toggle" type="button"></button>
+  </div>
+
+  <div class="unlock-banner" id="unlock-banner" hidden>
+    <p>Every infinitive answered twice in a row. All 78 conjugated forms are now unlocked.</p>
+    <button id="unlock-switch" type="button">Switch to all forms</button>
+    <button id="unlock-dismiss" type="button" class="ghost">Not yet</button>
+  </div>
+
+  <main class="quiz-card" id="quiz-card">
+    <p class="gloss" id="gloss"></p>
+    <p class="prompt" id="prompt"></p>
+    <form id="answer-form" autocomplete="off">
+      <input
+        id="answer-input"
+        type="text"
+        inputmode="latin"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        placeholder="type the arabic transliteration"
+      />
+      <button type="submit">Check</button>
+    </form>
+    <p class="feedback" id="feedback"></p>
+  </main>
+
+  <section class="mastery" id="mastery">
+    <h2 class="mastery-heading">Mastery</h2>
+    <div class="mastery-grid" id="mastery-grid"></div>
+  </section>
+
+</div>
+
+<script src="data.js"></script>
+<script src="quiz.js"></script>
+</body>
+</html>
