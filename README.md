@@ -13,15 +13,20 @@ Live at: https://arabic-quiz-gunner-ops.vercel.app
 
 ## Mechanics
 
-**Two stages.**
+**Three levels, strictly separated.**
 
-1. *Infinitives* — the 13 verb infinitives. This is the only stage available
-   at first.
-2. *All forms* — the 13 infinitives plus all 78 conjugated forms (13 verbs ×
-   6 persons: ech/du/hien-hatt/mir/dir/si). This unlocks automatically once
-   every infinitive has been answered correctly two times in a row, with a
-   banner inviting a switch. You can also toggle back to infinitives-only at
-   any time from the stage button in the top right, even after unlocking.
+1. *Level 1 — infinitives* — the 13 verb infinitives only. This is where
+   every session starts.
+2. *Level 2 — ana, anta, huwa* — the 39 conjugated forms for those three
+   persons only (not mixed with infinitives). Unlocks automatically, no
+   button, the instant all 13 infinitives have been answered correctly two
+   times in a row. A brief one-time "Level 2 unlocked" message shows before
+   the next question.
+3. *Level 3 — nahnu, antum, hum* — the remaining 39 conjugated forms.
+   Defined in the data model (see `data.js`) but not yet reachable in the
+   UI; there's no auto-unlock wired up for it yet.
+
+The current level is always shown as a label above the prompt.
 
 **Answer matching is lenient, not strict.** Before comparing, both your input
 and the correct answer are lowercased, stripped of apostrophes and excess
@@ -33,7 +38,7 @@ typing precision.
 
 **Spaced repetition, weighted by streak.** Each item (an infinitive or a
 conjugated form) has a running correct-streak. The next question is picked
-at random from the active stage's item pool, weighted so that
+at random from the active level's item pool, weighted so that
 lower-streak items come up more often:
 
 ```
@@ -47,19 +52,16 @@ streaks, plus overall totals (accuracy, running streak, questions answered),
 are saved to `localStorage` after every answer and reloaded on page load.
 There's no login and no backend — progress lives in the browser you're using.
 
-**Mastery grid.** Below the quiz, each of the 13 verbs shows a small progress
-bar. On the infinitives stage that's just "is the infinitive mastered
-(streak ≥ 2)?" On the all-forms stage it aggregates all 7 items per verb (the
-infinitive plus its 6 conjugations).
-
 **Progress milestones live in git, not just localStorage.** Since this is a
 static site with no backend, the app can't write to the repo on its own.
 Instead, whenever a verb reaches full mastery (all 7 of its items — the
 infinitive plus 6 conjugations — at streak ≥ 2), a "New milestones" panel
-appears below the mastery grid with a ready-to-paste JSON snippet. Copy it
+appears below the quiz card with a ready-to-paste JSON snippet. Copy it
 into [`progress-log.json`](progress-log.json) and commit — that's what turns
 "I actually learned this" into a real, dated entry in the git history,
-alongside the code changes.
+alongside the code changes. Per-item correct/incorrect/streak stats are
+tracked for every item regardless of level, purely for this weighting and
+milestone logic — there's no progress-bar UI for them.
 
 ## Data model
 
@@ -71,12 +73,12 @@ object with:
   id: "sinn",
   infinitive: { lb: "sinn", ar: "yakoon", en: "to be" },
   forms: [
-    { lb: "ech sinn", ar: "ana akoon" },      // ech / ana
-    { lb: "du bass", ar: "anta takoon" },     // du / anta
-    { lb: "hien/hatt ass", ar: "huwa yakoon" },// hien-hatt / huwa
-    { lb: "mir sinn", ar: "nahnu nakoon" },   // mir / nahnu
-    { lb: "dir sidd", ar: "antum takoonoon" },// dir / antum
-    { lb: "si sinn", ar: "hum yakoonoon" },   // si / hum
+    { lb: "ech sinn", arPronoun: "ana", arVerb: "akoon" },        // ech / ana
+    { lb: "du bass", arPronoun: "anta", arVerb: "takoon" },       // du / anta
+    { lb: "hien/hatt ass", arPronoun: "huwa", arVerb: "yakoon" }, // hien-hatt / huwa
+    { lb: "mir sinn", arPronoun: "nahnu", arVerb: "nakoon" },     // mir / nahnu
+    { lb: "dir sidd", arPronoun: "antum", arVerb: "takoonoon" },  // dir / antum
+    { lb: "si sinn", arPronoun: "hum", arVerb: "yakoonoon" },     // si / hum
   ],
 }
 ```
@@ -85,14 +87,16 @@ object with:
 per infinitive and per conjugated form — each with a stable id of the shape
 `sinn.inf` or `sinn.du`. That stable id is the key used for per-item stats in
 `localStorage`, so ids need to stay stable across edits to the verb list.
+Each item also gets a `level` (1: infinitive, 2: ech/du/hien-hatt forms, 3:
+mir/dir/si forms) that the app filters on for the active level's pool.
 
 ## Files
 
 ```
-index.html         markup: stats bar, stage toggle, quiz card, mastery grid
-style.css          dark editorial theme
+index.html         markup: stats bar, quiz card, export panel
+style.css          navy/soft-blue reference palette
 data.js            the 13 verbs, their forms, and the ITEMS flattening
-quiz.js            answer matching, item selection, stats, persistence, rendering
+quiz.js            answer matching, item selection, leveling, stats, persistence, rendering
 progress-log.json  dated record of verbs reaching full mastery
 ```
 
