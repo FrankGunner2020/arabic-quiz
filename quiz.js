@@ -6,11 +6,9 @@
 
   const LEVEL1_ITEMS = ITEMS.filter((item) => item.level === 1);
   const LEVEL2_ITEMS = ITEMS.filter((item) => item.level === 2);
-  // Level 3 (nahnu/antum/hum) mirrors Level 2's shape but has no unlock path
-  // wired up yet. Extension point: once there's a policy for unlocking it
-  // (fixed test like Level 1, or a streak-based gate like Level 1 used to
-  // be), set state.level = 3 wherever that condition is checked and give it
-  // the same treatment Level 1/2 get below.
+  // Level 3 (nahnu/antum/hum) is reachable once Level 2 is passed, but stays
+  // continuous weighted-repetition practice (no fixed test) -- see
+  // TEST_CONFIG below, which only has entries for levels 1 and 2.
   const LEVEL3_ITEMS = ITEMS.filter((item) => item.level === 3);
 
   const LEVEL_POOLS = { 1: LEVEL1_ITEMS, 2: LEVEL2_ITEMS, 3: LEVEL3_ITEMS };
@@ -22,17 +20,37 @@
 
   const ITEMS_BY_ID = new Map(ITEMS.map((item) => [item.id, item]));
 
-  const LEVEL1_TOTAL = LEVEL1_ITEMS.length; // 13
-  // 11/13 (~85%) rounds to exactly the threshold but 12/13 (~92%) is the
-  // next whole score above it, so require 12 to be unambiguously a pass.
-  const LEVEL1_PASS_THRESHOLD = 12;
+  // Levels with a fixed-length pass/fail test, keyed by level number.
+  // Levels not listed here (currently level 3) are continuous practice.
+  const TEST_CONFIG = {
+    1: {
+      pool: LEVEL1_ITEMS,
+      total: LEVEL1_ITEMS.length, // 13
+      // 11/13 (~85%) rounds to exactly the threshold but 12/13 (~92%) is the
+      // next whole score above it, so require 12 to be unambiguously a pass.
+      passThreshold: 12,
+      nextLevel: 2,
+      unlockMessage: "Level 2 unlocked!",
+      actionLabel: "Start Level 2 →",
+    },
+    2: {
+      pool: LEVEL2_ITEMS,
+      total: LEVEL2_ITEMS.length, // 39
+      // 33/39 is ~84.6% (just under 85%); 34/39 is ~87.2%, the smallest
+      // count that clears 85%.
+      passThreshold: 34,
+      nextLevel: 3,
+      unlockMessage: "Level 3 unlocked!",
+      actionLabel: "Start Level 3 →",
+    },
+  };
 
   // ---------- state ----------
 
   function defaultState() {
     return {
-      level: 1, // 1 | 2 | 3 (3 has no unlock path yet, see LEVEL3_ITEMS above)
-      level1Test: null, // { order, index, correctCount, done, passed } -- current Level 1 attempt
+      level: 1, // 1 | 2 | 3
+      test: null, // { order, index, correctCount, done, passed } -- current fixed-test attempt (levels 1/2 only)
       items: {}, // id -> { correct, incorrect, streak }
       totalAnswered: 0,
       totalCorrect: 0,
@@ -102,7 +120,7 @@
     });
   }
 
-  // ---------- Level 1 fixed test ----------
+  // ---------- fixed-length tests (levels 1 and 2) ----------
 
   function shuffle(arr) {
     const a = arr.slice();
@@ -115,9 +133,10 @@
     return a;
   }
 
-  function newLevel1Test() {
+  function newTest(level) {
+    const cfg = TEST_CONFIG[level];
     return {
-      order: shuffle(LEVEL1_ITEMS.map((item) => item.id)),
+      order: shuffle(cfg.pool.map((item) => item.id)),
       index: 0,
       correctCount: 0,
       done: false,
@@ -125,9 +144,10 @@
     };
   }
 
-  function ensureLevel1Test() {
-    if (!state.level1Test) {
-      state.level1Test = newLevel1Test();
+  function ensureTest() {
+    const cfg = TEST_CONFIG[state.level];
+    if (cfg && !state.test) {
+      state.test = newTest(state.level);
       saveState();
     }
   }
@@ -212,28 +232,30 @@
     els.questionView.hidden = true;
     els.resultView.hidden = false;
 
-    const test = state.level1Test;
-    const pct = Math.round((test.correctCount / LEVEL1_TOTAL) * 100);
-    els.resultScore.textContent = `${test.correctCount}/${LEVEL1_TOTAL} (${pct}%)`;
+    const cfg = TEST_CONFIG[state.level];
+    const test = state.test;
+    const pct = Math.round((test.correctCount / cfg.total) * 100);
+    els.resultScore.textContent = `${test.correctCount}/${cfg.total} (${pct}%)`;
 
     if (test.passed) {
-      els.resultMessage.textContent = "Level 2 unlocked!";
+      els.resultMessage.textContent = cfg.unlockMessage;
       els.resultMessage.className = "result-message pass";
-      els.resultAction.textContent = "Start Level 2 →";
+      els.resultAction.textContent = cfg.actionLabel;
     } else {
-      els.resultMessage.textContent = `Not quite — ${LEVEL1_PASS_THRESHOLD}/${LEVEL1_TOTAL} needed to pass.`;
+      els.resultMessage.textContent = `Not quite — ${cfg.passThreshold}/${cfg.total} needed to pass.`;
       els.resultMessage.className = "result-message fail";
       els.resultAction.textContent = "Retry";
     }
   }
 
   function renderQuestion() {
-    if (state.level === 1) {
-      ensureLevel1Test();
-      const test = state.level1Test;
+    const cfg = TEST_CONFIG[state.level];
+    if (cfg) {
+      ensureTest();
+      const test = state.test;
       currentItem = ITEMS_BY_ID.get(test.order[test.index]);
       els.progressCounter.hidden = false;
-      els.progressCounter.textContent = `${test.index + 1}/${LEVEL1_TOTAL}`;
+      els.progressCounter.textContent = `${test.index + 1}/${cfg.total}`;
     } else {
       currentItem = pickWeightedItem(activePool());
       els.progressCounter.hidden = true;
@@ -268,9 +290,9 @@
     renderLevelLabel();
     renderExportSection();
 
-    if (state.level === 1) {
-      ensureLevel1Test();
-      if (state.level1Test.done) {
+    if (TEST_CONFIG[state.level]) {
+      ensureTest();
+      if (state.test.done) {
         showResultView();
         return;
       }
@@ -324,11 +346,12 @@
       const correct = isCorrectForItem(value, currentItem);
       recordAnswer(currentItem.id, correct);
 
-      let isLastLevel1Question = false;
-      if (state.level === 1) {
-        const test = state.level1Test;
+      const cfg = TEST_CONFIG[state.level];
+      let isLastTestQuestion = false;
+      if (cfg) {
+        const test = state.test;
         if (correct) test.correctCount += 1;
-        isLastLevel1Question = test.index === LEVEL1_TOTAL - 1;
+        isLastTestQuestion = test.index === cfg.total - 1;
       }
 
       els.feedback.className = "feedback " + (correct ? "correct" : "incorrect");
@@ -337,19 +360,20 @@
         : `Not quite — ${currentItem.displayAnswer}`;
 
       els.input.disabled = true;
-      els.submitBtn.textContent = isLastLevel1Question ? "See results" : "Next";
+      els.submitBtn.textContent = isLastTestQuestion ? "See results" : "Next";
       awaitingNext = true;
 
       saveState();
       renderStats();
       renderExportSection();
       els.submitBtn.focus();
-    } else if (state.level === 1) {
-      const test = state.level1Test;
+    } else if (TEST_CONFIG[state.level]) {
+      const cfg = TEST_CONFIG[state.level];
+      const test = state.test;
       test.index += 1;
-      if (test.index >= LEVEL1_TOTAL) {
+      if (test.index >= cfg.total) {
         test.done = true;
-        test.passed = test.correctCount >= LEVEL1_PASS_THRESHOLD;
+        test.passed = test.correctCount >= cfg.passThreshold;
         saveState();
         showResultView();
       } else {
@@ -362,12 +386,13 @@
   });
 
   els.resultAction.addEventListener("click", function () {
-    const test = state.level1Test;
+    const cfg = TEST_CONFIG[state.level];
+    const test = state.test;
     if (test.passed) {
-      state.level = 2;
-      state.level1Test = null;
+      state.level = cfg.nextLevel;
+      state.test = null;
     } else {
-      state.level1Test = newLevel1Test();
+      state.test = newTest(state.level);
     }
     saveState();
     render();

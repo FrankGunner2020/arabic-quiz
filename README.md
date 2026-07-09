@@ -25,13 +25,18 @@ Live at: https://arabic-quiz-gunner-ops.vercel.app
    the score with a Retry button that reshuffles a fresh attempt. There's no
    way into Level 2 without a passing attempt.
 2. *Level 2 — ana, anta, huwa* — the 39 conjugated forms for those three
-   persons only (not mixed with infinitives). This is continuous,
-   open-ended practice: no fixed length, no pass/fail, just weighted
-   repetition (see below) for as long as you want to keep going.
-3. *Level 3 — nahnu, antum, hum* — the remaining 39 conjugated forms.
-   Defined in the data model (see `data.js`) but not yet reachable in the
-   UI; there's no unlock path wired up for it yet, for either progression
-   style.
+   persons only (not mixed with infinitives). Same fixed-test pattern as
+   Level 1: one shuffled pass through all 39 with no repeats, a counter
+   ("1/39" .. "39/39"), and a result screen. 34/39 (~87%) or better passes
+   — 33/39 (~85%) lands just under the bar — and unlocks Level 3; anything
+   lower shows the score with a Retry button that reshuffles a fresh
+   39-question attempt. The shared fixed-test machinery (shuffle, counter,
+   pass/fail result screen) lives in one place in `quiz.js`, parameterized
+   per level, rather than being duplicated between Level 1 and Level 2.
+3. *Level 3 — nahnu, antum, hum* — the remaining 39 conjugated forms,
+   reachable once Level 2 is passed. Unlike Levels 1 and 2, this is
+   continuous, open-ended practice: no fixed length, no pass/fail, just
+   weighted repetition (see below) for as long as you want to keep going.
 
 The current level is always shown as a label above the prompt. A "Word
 list" button in the header opens a reference panel listing every item in
@@ -56,8 +61,9 @@ lower-streak items come up more often:
 weight = max(0.3, 3 - streak)
 ```
 
-Mastered items don't disappear — they just fade into the background. (Level
-1's fixed test doesn't use this picker at all — see above.)
+Mastered items don't disappear — they just fade into the background. (Levels
+1 and 2's fixed tests don't use this picker at all — see above; only Level
+3 does.)
 
 **Stats persist across sessions.** Per-item correct/incorrect counts and
 streaks, plus overall totals (accuracy, running streak, questions answered),
