@@ -12,6 +12,7 @@
   <header class="header">
     <h1 class="wordmark">Arabic Quiz</h1>
     <p class="subtitle">Lëtzebuergesch → Arabic, one verb at a time</p>
+    <button class="word-list-btn" id="word-list-btn" type="button">Word list</button>
   </header>
 
   <section class="session-stats" id="session-stats">
@@ -61,6 +62,16 @@
       <button id="export-mark-done" type="button" class="ghost">I've saved this</button>
     </div>
   </section>
+
+  <div class="modal-overlay" id="word-list-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="word-list-title">Word list</h2>
+        <button class="modal-close" id="word-list-close" type="button">Close</button>
+      </div>
+      <div class="modal-body" id="word-list-body"></div>
+    </div>
+  </div>
 
 </div>
 

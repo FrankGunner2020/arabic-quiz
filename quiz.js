@@ -148,6 +148,11 @@
     exportJson: document.getElementById("export-json"),
     exportCopy: document.getElementById("export-copy"),
     exportMarkDone: document.getElementById("export-mark-done"),
+    wordListBtn: document.getElementById("word-list-btn"),
+    wordListOverlay: document.getElementById("word-list-overlay"),
+    wordListTitle: document.getElementById("word-list-title"),
+    wordListBody: document.getElementById("word-list-body"),
+    wordListClose: document.getElementById("word-list-close"),
   };
 
   let currentItem = null;
@@ -198,6 +203,39 @@
     renderExportSection();
   }
 
+  // ---------- word list ----------
+
+  function renderWordList() {
+    const pool = activePool();
+    els.wordListTitle.textContent = `Word list — ${LEVEL_LABELS[state.level] || ""}`;
+    els.wordListBody.innerHTML = "";
+    pool.forEach((item, i) => {
+      const row = document.createElement("div");
+      row.className = "word-row" + (i % 2 === 1 ? " alt" : "");
+
+      const lb = document.createElement("span");
+      lb.className = "word-lb";
+      lb.textContent = item.prompt;
+
+      const ar = document.createElement("span");
+      ar.className = "word-ar";
+      ar.textContent = item.displayAnswer;
+
+      row.appendChild(lb);
+      row.appendChild(ar);
+      els.wordListBody.appendChild(row);
+    });
+  }
+
+  function openWordList() {
+    renderWordList();
+    els.wordListOverlay.hidden = false;
+  }
+
+  function closeWordList() {
+    els.wordListOverlay.hidden = true;
+  }
+
   // ---------- events ----------
 
   els.form.addEventListener("submit", function (e) {
@@ -241,6 +279,15 @@
     state.pendingExport = [];
     saveState();
     renderExportSection();
+  });
+
+  els.wordListBtn.addEventListener("click", openWordList);
+  els.wordListClose.addEventListener("click", closeWordList);
+  els.wordListOverlay.addEventListener("click", function (e) {
+    if (e.target === els.wordListOverlay) closeWordList();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !els.wordListOverlay.hidden) closeWordList();
   });
 
   // ---------- init ----------

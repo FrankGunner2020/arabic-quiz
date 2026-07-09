@@ -66,8 +66,24 @@ body {
   font-family: var(--sans);
   font-size: 0.8rem;
   color: var(--header-text-dim);
-  margin: 0;
+  margin: 0 0 16px;
   letter-spacing: 0.02em;
+}
+
+.word-list-btn {
+  background: none;
+  border: 1px solid var(--header-text-dim);
+  color: var(--header-text);
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  padding: 6px 16px;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+
+.word-list-btn:hover {
+  border-color: var(--header-text);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* session stats */
@@ -217,6 +233,96 @@ body {
 .feedback.incorrect {
   color: var(--incorrect);
   background: var(--incorrect-bg);
+}
+
+/* word list modal */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(22, 35, 61, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 10;
+}
+
+.modal-overlay[hidden] {
+  display: none;
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--header-bg);
+  color: var(--header-text);
+}
+
+.modal-header h2 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.modal-close {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  background: none;
+  border: 1px solid var(--header-text-dim);
+  color: var(--header-text);
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  border-color: var(--header-text);
+}
+
+.modal-body {
+  overflow-y: auto;
+}
+
+.word-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 10px 20px;
+  background: var(--bg);
+}
+
+.word-row.alt {
+  background: var(--row-stripe);
+}
+
+.word-lb {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.word-ar {
+  font-family: var(--mono);
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--arabic);
+  text-align: right;
 }
 
 /* export section */
