@@ -13,20 +13,30 @@ Live at: https://arabic-quiz-gunner-ops.vercel.app
 
 ## Mechanics
 
-**Three levels, strictly separated.**
+**Three levels, strictly separated, each with its own progression style.**
 
-1. *Level 1 — infinitives* — the 13 verb infinitives only. This is where
-   every session starts.
+1. *Level 1 — infinitives* — the 13 verb infinitives only, run as a fixed
+   13-question test rather than open-ended practice. Each attempt shuffles
+   the 13 once and asks every item exactly once (no repeats within an
+   attempt), with a counter under the input ("1/13" .. "13/13"). After the
+   13th question a result screen shows the score and percentage. 12/13
+   (~92%) or better passes — 11/13 (~85%) lands just under the bar — and
+   unlocks Level 2 with a button to go straight there; anything lower shows
+   the score with a Retry button that reshuffles a fresh attempt. There's no
+   way into Level 2 without a passing attempt.
 2. *Level 2 — ana, anta, huwa* — the 39 conjugated forms for those three
-   persons only (not mixed with infinitives). Unlocks automatically, no
-   button, the instant all 13 infinitives have been answered correctly two
-   times in a row. A brief one-time "Level 2 unlocked" message shows before
-   the next question.
+   persons only (not mixed with infinitives). This is continuous,
+   open-ended practice: no fixed length, no pass/fail, just weighted
+   repetition (see below) for as long as you want to keep going.
 3. *Level 3 — nahnu, antum, hum* — the remaining 39 conjugated forms.
    Defined in the data model (see `data.js`) but not yet reachable in the
-   UI; there's no auto-unlock wired up for it yet.
+   UI; there's no unlock path wired up for it yet, for either progression
+   style.
 
-The current level is always shown as a label above the prompt.
+The current level is always shown as a label above the prompt. A "Word
+list" button in the header opens a reference panel listing every item in
+the active level's pool (Lëtzebuergesch alongside its Arabic phonetic form)
+for review before or during practice.
 
 **Answer matching is lenient, not strict.** Before comparing, both your input
 and the correct answer are lowercased, stripped of apostrophes and excess
@@ -36,16 +46,18 @@ characters long, a single-character typo (Levenshtein distance of 1) is
 still accepted. The goal is testing whether you know the word, not your
 typing precision.
 
-**Spaced repetition, weighted by streak.** Each item (an infinitive or a
-conjugated form) has a running correct-streak. The next question is picked
-at random from the active level's item pool, weighted so that
+**Level 2's spaced repetition is weighted by streak, and never repeats a
+question back-to-back.** Each item (an infinitive or a conjugated form) has
+a running correct-streak. The next question is picked at random from the
+active pool, excluding whatever was just asked, weighted so that
 lower-streak items come up more often:
 
 ```
 weight = max(0.3, 3 - streak)
 ```
 
-Mastered items don't disappear — they just fade into the background.
+Mastered items don't disappear — they just fade into the background. (Level
+1's fixed test doesn't use this picker at all — see above.)
 
 **Stats persist across sessions.** Per-item correct/incorrect counts and
 streaks, plus overall totals (accuracy, running streak, questions answered),
