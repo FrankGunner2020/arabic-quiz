@@ -47,14 +47,20 @@
 
   // ---------- state ----------
 
+  function freshLevelStats() {
+    return { totalAnswered: 0, totalCorrect: 0, currentStreak: 0 };
+  }
+
   function defaultState() {
     return {
       level: 1, // 1 | 2 | 3
       test: null, // { order, index, correctCount, done, passed } -- current fixed-test attempt (levels 1/2 only)
       items: {}, // id -> { correct, incorrect, streak }
-      totalAnswered: 0,
-      totalCorrect: 0,
-      currentStreak: 0,
+      // Session stats (streak/accuracy/answered), tracked separately per
+      // level so switching levels doesn't blend one level's numbers into
+      // another's. Accumulates across retries within a level (a Level 1
+      // retry doesn't zero these out) rather than resetting per attempt.
+      levelStats: { 1: freshLevelStats(), 2: freshLevelStats(), 3: freshLevelStats() },
       milestones: [], // verb ids that have reached full mastery (historical, never removed)
       pendingExport: [], // milestones not yet copied into progress-log.json
     };
@@ -92,12 +98,13 @@
     }
     state.items[id] = stats;
 
-    state.totalAnswered += 1;
+    const levelStats = state.levelStats[state.level];
+    levelStats.totalAnswered += 1;
     if (isCorrect) {
-      state.totalCorrect += 1;
-      state.currentStreak += 1;
+      levelStats.totalCorrect += 1;
+      levelStats.currentStreak += 1;
     } else {
-      state.currentStreak = 0;
+      levelStats.currentStreak = 0;
     }
 
     checkMilestones();
@@ -211,12 +218,13 @@
   let awaitingNext = false;
 
   function renderStats() {
-    els.statStreak.textContent = state.currentStreak;
-    els.statTotal.textContent = state.totalAnswered;
+    const levelStats = state.levelStats[state.level];
+    els.statStreak.textContent = levelStats.currentStreak;
+    els.statTotal.textContent = levelStats.totalAnswered;
     els.statAccuracy.textContent =
-      state.totalAnswered === 0
+      levelStats.totalAnswered === 0
         ? "—"
-        : Math.round((state.totalCorrect / state.totalAnswered) * 100) + "%";
+        : Math.round((levelStats.totalCorrect / levelStats.totalAnswered) * 100) + "%";
   }
 
   function renderLevelLabel() {

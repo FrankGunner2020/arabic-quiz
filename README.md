@@ -65,10 +65,19 @@ Mastered items don't disappear — they just fade into the background. (Levels
 1 and 2's fixed tests don't use this picker at all — see above; only Level
 3 does.)
 
-**Stats persist across sessions.** Per-item correct/incorrect counts and
-streaks, plus overall totals (accuracy, running streak, questions answered),
-are saved to `localStorage` after every answer and reloaded on page load.
-There's no login and no backend — progress lives in the browser you're using.
+**Stats persist across sessions, scoped per level.** Per-item correct/
+incorrect counts and streaks are tracked globally (used for weighting and
+milestones, regardless of level). The session stats bar (streak, accuracy,
+questions answered), however, is tracked separately per level and always
+shows only the currently active level's numbers — passing Level 1 and
+moving to Level 2 doesn't carry Level 1's accuracy into Level 2's display.
+Switching levels never discards a level's stats; they're just not shown
+while another level is active. Within a level, these stats accumulate
+across attempts rather than resetting on retry — a failed Level 1 attempt
+followed by a retry keeps accumulating into the same Level 1 totals rather
+than starting over. Everything is saved to `localStorage` after every
+answer and reloaded on page load. There's no login and no backend —
+progress lives in the browser you're using.
 
 **Progress milestones live in git, not just localStorage.** Since this is a
 static site with no backend, the app can't write to the repo on its own.
