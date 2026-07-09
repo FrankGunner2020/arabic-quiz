@@ -153,7 +153,15 @@
 
   function ensureTest() {
     const cfg = TEST_CONFIG[state.level];
-    if (cfg && !state.test) {
+    if (!cfg) return;
+    // A saved in-progress test can reference item ids that no longer exist
+    // after a data.js edit (e.g. the huwa/hiya split renamed
+    // "verb.hien-hatt" to "verb.hien"/"verb.hatt"). Discard it rather than
+    // crashing on the missing lookup.
+    if (state.test && !state.test.order.every((id) => ITEMS_BY_ID.has(id))) {
+      state.test = null;
+    }
+    if (!state.test) {
       state.test = newTest(state.level);
       saveState();
     }
