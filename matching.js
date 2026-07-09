@@ -38,7 +38,18 @@ function isAnswerCorrect(input, correct) {
   const normInput = normalizeAnswer(input);
   const normCorrect = normalizeAnswer(correct);
   if (normInput === normCorrect) return true;
-  if (normCorrect.length >= 5 && levenshtein(normInput, normCorrect) <= 1) {
+  // The typo-tolerance below is meant to forgive fat-fingering, not a wrong
+  // verb form entirely. Several verbs here differ only by their leading
+  // person-prefix (e.g. huwa's "yakoon" vs hiya's "takoon"), which is a
+  // single-character edit at position 0 -- exactly what Levenshtein-1 would
+  // otherwise forgive. Requiring the first character to match exactly closes
+  // that hole while still tolerating typos anywhere else in the word.
+  if (
+    normCorrect.length >= 5 &&
+    normInput.length > 0 &&
+    normInput[0] === normCorrect[0] &&
+    levenshtein(normInput, normCorrect) <= 1
+  ) {
     return true;
   }
   return false;
