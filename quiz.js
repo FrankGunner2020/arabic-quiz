@@ -116,18 +116,24 @@
     return LEVEL_POOLS[state.level] || LEVEL1_ITEMS;
   }
 
+  let lastItemId = null;
+
   function pickNextItem() {
     const pool = activePool();
-    const weights = pool.map((item) =>
+    // Never repeat the immediately preceding item, unless the pool is too
+    // small to avoid it.
+    const candidates =
+      pool.length > 1 ? pool.filter((item) => item.id !== lastItemId) : pool;
+    const weights = candidates.map((item) =>
       Math.max(0.3, 3 - getItemStats(item.id).streak)
     );
     const total = weights.reduce((a, b) => a + b, 0);
     let r = Math.random() * total;
-    for (let i = 0; i < pool.length; i++) {
+    for (let i = 0; i < candidates.length; i++) {
       r -= weights[i];
-      if (r <= 0) return pool[i];
+      if (r <= 0) return candidates[i];
     }
-    return pool[pool.length - 1];
+    return candidates[candidates.length - 1];
   }
 
   // ---------- DOM ----------
@@ -173,6 +179,7 @@
 
   function renderQuestion() {
     currentItem = pickNextItem();
+    lastItemId = currentItem.id;
     awaitingNext = false;
     els.levelUpMessage.hidden = true;
     els.gloss.textContent = currentItem.gloss;
