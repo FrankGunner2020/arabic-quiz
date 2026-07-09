@@ -24,13 +24,16 @@ Live at: https://arabic-quiz-gunner-ops.vercel.app
    unlocks Level 2 with a button to go straight there; anything lower shows
    the score with a Retry button that reshuffles a fresh attempt. There's no
    way into Level 2 without a passing attempt.
-2. *Level 2 — ana, anta, huwa* — the 39 conjugated forms for those three
-   persons only (not mixed with infinitives). Same fixed-test pattern as
-   Level 1: one shuffled pass through all 39 with no repeats, a counter
-   ("1/39" .. "39/39"), and a result screen. 34/39 (~87%) or better passes
-   — 33/39 (~85%) lands just under the bar — and unlocks Level 3; anything
+2. *Level 2 — ana, anta, huwa, hiya* — the 52 conjugated forms for those
+   four persons only (not mixed with infinitives). huwa (hien) and hiya
+   (hatt) are always separate quiz items, never combined, even though in
+   Arabic the hiya verb form is spelled identically to the anta form for
+   every verb here — both take the tā- prefix. Same fixed-test pattern as
+   Level 1: one shuffled pass through all 52 with no repeats, a counter
+   ("1/52" .. "52/52"), and a result screen. 45/52 (~87%) or better passes
+   — 44/52 (~85%) lands just under the bar — and unlocks Level 3; anything
    lower shows the score with a Retry button that reshuffles a fresh
-   39-question attempt. The shared fixed-test machinery (shuffle, counter,
+   52-question attempt. The shared fixed-test machinery (shuffle, counter,
    pass/fail result screen) lives in one place in `quiz.js`, parameterized
    per level, rather than being duplicated between Level 1 and Level 2.
 3. *Level 3 — nahnu, antum, hum* — the remaining 39 conjugated forms,
@@ -81,8 +84,8 @@ progress lives in the browser you're using.
 
 **Progress milestones live in git, not just localStorage.** Since this is a
 static site with no backend, the app can't write to the repo on its own.
-Instead, whenever a verb reaches full mastery (all 7 of its items — the
-infinitive plus 6 conjugations — at streak ≥ 2), a "New milestones" panel
+Instead, whenever a verb reaches full mastery (all 8 of its items — the
+infinitive plus 7 conjugations — at streak ≥ 2), a "New milestones" panel
 appears below the quiz card with a ready-to-paste JSON snippet. Copy it
 into [`progress-log.json`](progress-log.json) and commit — that's what turns
 "I actually learned this" into a real, dated entry in the git history,
@@ -100,21 +103,27 @@ object with:
   id: "sinn",
   infinitive: { lb: "sinn", ar: "yakoon", en: "to be" },
   forms: [
-    { lb: "ech sinn", arPronoun: "ana", arVerb: "akoon" },        // ech / ana
-    { lb: "du bass", arPronoun: "anta", arVerb: "takoon" },       // du / anta
-    { lb: "hien/hatt ass", arPronoun: "huwa", arVerb: "yakoon" }, // hien-hatt / huwa
-    { lb: "mir sinn", arPronoun: "nahnu", arVerb: "nakoon" },     // mir / nahnu
-    { lb: "dir sidd", arPronoun: "antum", arVerb: "takoonoon" },  // dir / antum
-    { lb: "si sinn", arPronoun: "hum", arVerb: "yakoonoon" },     // si / hum
+    { lb: "ech sinn", arPronoun: "ana", arVerb: "akoon" },       // ech / ana
+    { lb: "du bass", arPronoun: "anta", arVerb: "takoon" },      // du / anta
+    { lb: "hien ass", arPronoun: "huwa", arVerb: "yakoon" },     // hien / huwa
+    { lb: "hatt ass", arPronoun: "hiya", arVerb: "takoon" },     // hatt / hiya
+    { lb: "mir sinn", arPronoun: "nahnu", arVerb: "nakoon" },    // mir / nahnu
+    { lb: "dir sidd", arPronoun: "antum", arVerb: "takoonoon" }, // dir / antum
+    { lb: "si sinn", arPronoun: "hum", arVerb: "yakoonoon" },    // si / hum
   ],
 }
 ```
+
+hien (huwa) and hatt (hiya) are always distinct entries, never combined —
+note that hatt's `arVerb` is the same string as anta's `arVerb` (`takoon`
+above), since the hiya conjugation is spelled identically to anta's for
+every verb in this dataset.
 
 `data.js` flattens this into a single `ITEMS` array at load time — one entry
 per infinitive and per conjugated form — each with a stable id of the shape
 `sinn.inf` or `sinn.du`. That stable id is the key used for per-item stats in
 `localStorage`, so ids need to stay stable across edits to the verb list.
-Each item also gets a `level` (1: infinitive, 2: ech/du/hien-hatt forms, 3:
+Each item also gets a `level` (1: infinitive, 2: ech/du/hien/hatt forms, 3:
 mir/dir/si forms) that the app filters on for the active level's pool.
 
 ## Files

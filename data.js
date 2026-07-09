@@ -2,18 +2,21 @@
 //
 // Each verb has a stable `id` (its Lëtzebuergesch infinitive, lowercased).
 // `infinitive` holds the Lëtzebuergesch/Arabic-phonetic/English triple for the
-// infinitive form itself. `forms` is an array of six conjugations, one per
-// person (ech, du, hien-hatt, mir, dir, si). Each form stores the Arabic
-// pronoun and verb as separate fields — the Lëtzebuergesch prompt already
-// establishes the subject, so the verb alone is what's actually drilled;
-// the pronoun is kept around to show the full phrase for context and to
-// accept it as an alternate answer.
+// infinitive form itself. `forms` is an array of seven conjugations, one per
+// person (ech, du, hien, hatt, mir, dir, si). hien (huwa) and hatt (hiya) are
+// kept as fully separate items, never combined, even though in Arabic the
+// hiya verb form is spelled identically to the anta form for every verb here
+// (both take the tā- prefix) — hatt's arVerb is always a copy of that verb's
+// anta arVerb. Each form stores the Arabic pronoun and verb as separate
+// fields — the Lëtzebuergesch prompt already establishes the subject, so the
+// verb alone is what's actually drilled; the pronoun is kept around to show
+// the full phrase for context and to accept it as an alternate answer.
 //
 // Every quizzable unit (an infinitive or a single conjugated form) gets a
 // flattened, stable item id of the shape `${verbId}.inf` or
 // `${verbId}.${person}` so stats can be tracked per item across sessions.
 
-const PERSONS = ["ech", "du", "hien-hatt", "mir", "dir", "si"];
+const PERSONS = ["ech", "du", "hien", "hatt", "mir", "dir", "si"];
 
 const VERBS = [
   {
@@ -22,7 +25,8 @@ const VERBS = [
     forms: [
       { lb: "ech sinn", arPronoun: "ana", arVerb: "akoon" },
       { lb: "du bass", arPronoun: "anta", arVerb: "takoon" },
-      { lb: "hien/hatt ass", arPronoun: "huwa", arVerb: "yakoon" },
+      { lb: "hien ass", arPronoun: "huwa", arVerb: "yakoon" },
+      { lb: "hatt ass", arPronoun: "hiya", arVerb: "takoon" },
       { lb: "mir sinn", arPronoun: "nahnu", arVerb: "nakoon" },
       { lb: "dir sidd", arPronoun: "antum", arVerb: "takoonoon" },
       { lb: "si sinn", arPronoun: "hum", arVerb: "yakoonoon" },
@@ -34,7 +38,8 @@ const VERBS = [
     forms: [
       { lb: "ech hunn", arPronoun: "ana", arVerb: "amlik" },
       { lb: "du hues", arPronoun: "anta", arVerb: "tamlik" },
-      { lb: "hien/hatt huet", arPronoun: "huwa", arVerb: "yamlik" },
+      { lb: "hien huet", arPronoun: "huwa", arVerb: "yamlik" },
+      { lb: "hatt huet", arPronoun: "hiya", arVerb: "tamlik" },
       { lb: "mir hunn", arPronoun: "nahnu", arVerb: "namlik" },
       { lb: "dir hutt", arPronoun: "antum", arVerb: "tamlikoon" },
       { lb: "si hunn", arPronoun: "hum", arVerb: "yamlikoon" },
@@ -46,7 +51,8 @@ const VERBS = [
     forms: [
       { lb: "ech ginn", arPronoun: "ana", arVerb: "adhab" },
       { lb: "du gees", arPronoun: "anta", arVerb: "tadhab" },
-      { lb: "hien/hatt geet", arPronoun: "huwa", arVerb: "yadhab" },
+      { lb: "hien geet", arPronoun: "huwa", arVerb: "yadhab" },
+      { lb: "hatt geet", arPronoun: "hiya", arVerb: "tadhab" },
       { lb: "mir ginn", arPronoun: "nahnu", arVerb: "nadhab" },
       { lb: "dir gitt", arPronoun: "antum", arVerb: "tadhaboon" },
       { lb: "si ginn", arPronoun: "hum", arVerb: "yadhaboon" },
@@ -58,7 +64,8 @@ const VERBS = [
     forms: [
       { lb: "ech kommen", arPronoun: "ana", arVerb: "a'ti" },
       { lb: "du kënns", arPronoun: "anta", arVerb: "ta'ti" },
-      { lb: "hien/hatt kënnt", arPronoun: "huwa", arVerb: "ya'ti" },
+      { lb: "hien kënnt", arPronoun: "huwa", arVerb: "ya'ti" },
+      { lb: "hatt kënnt", arPronoun: "hiya", arVerb: "ta'ti" },
       { lb: "mir kommen", arPronoun: "nahnu", arVerb: "na'ti" },
       { lb: "dir kommt", arPronoun: "antum", arVerb: "ta'toon" },
       { lb: "si kommen", arPronoun: "hum", arVerb: "ya'toon" },
@@ -70,7 +77,8 @@ const VERBS = [
     forms: [
       { lb: "ech wëll", arPronoun: "ana", arVerb: "urid" },
       { lb: "du wëlls", arPronoun: "anta", arVerb: "turid" },
-      { lb: "hien/hatt wëll", arPronoun: "huwa", arVerb: "yurid" },
+      { lb: "hien wëll", arPronoun: "huwa", arVerb: "yurid" },
+      { lb: "hatt wëll", arPronoun: "hiya", arVerb: "turid" },
       { lb: "mir wëllen", arPronoun: "nahnu", arVerb: "nurid" },
       { lb: "dir wëllt", arPronoun: "antum", arVerb: "turidoon" },
       { lb: "si wëllen", arPronoun: "hum", arVerb: "yuridoon" },
@@ -82,7 +90,8 @@ const VERBS = [
     forms: [
       { lb: "ech brauch", arPronoun: "ana", arVerb: "ahtaj" },
       { lb: "du brauchs", arPronoun: "anta", arVerb: "tahtaj" },
-      { lb: "hien/hatt brauch", arPronoun: "huwa", arVerb: "yahtaj" },
+      { lb: "hien brauch", arPronoun: "huwa", arVerb: "yahtaj" },
+      { lb: "hatt brauch", arPronoun: "hiya", arVerb: "tahtaj" },
       { lb: "mir brauchen", arPronoun: "nahnu", arVerb: "nahtaj" },
       { lb: "dir braucht", arPronoun: "antum", arVerb: "tahtajoon" },
       { lb: "si brauchen", arPronoun: "hum", arVerb: "yahtajoon" },
@@ -94,7 +103,8 @@ const VERBS = [
     forms: [
       { lb: "ech maachen", arPronoun: "ana", arVerb: "af'al" },
       { lb: "du méchs", arPronoun: "anta", arVerb: "taf'al" },
-      { lb: "hien/hatt mécht", arPronoun: "huwa", arVerb: "yaf'al" },
+      { lb: "hien mécht", arPronoun: "huwa", arVerb: "yaf'al" },
+      { lb: "hatt mécht", arPronoun: "hiya", arVerb: "taf'al" },
       { lb: "mir maachen", arPronoun: "nahnu", arVerb: "naf'al" },
       { lb: "dir maacht", arPronoun: "antum", arVerb: "taf'aloon" },
       { lb: "si maachen", arPronoun: "hum", arVerb: "yaf'aloon" },
@@ -106,7 +116,8 @@ const VERBS = [
     forms: [
       { lb: "ech soen", arPronoun: "ana", arVerb: "aqool" },
       { lb: "du sees", arPronoun: "anta", arVerb: "taqool" },
-      { lb: "hien/hatt seet", arPronoun: "huwa", arVerb: "yaqool" },
+      { lb: "hien seet", arPronoun: "huwa", arVerb: "yaqool" },
+      { lb: "hatt seet", arPronoun: "hiya", arVerb: "taqool" },
       { lb: "mir soen", arPronoun: "nahnu", arVerb: "naqool" },
       { lb: "dir sot", arPronoun: "antum", arVerb: "taqooloon" },
       { lb: "si soen", arPronoun: "hum", arVerb: "yaqooloon" },
@@ -118,7 +129,8 @@ const VERBS = [
     forms: [
       { lb: "ech schwätzen", arPronoun: "ana", arVerb: "atakallam" },
       { lb: "du schwätz", arPronoun: "anta", arVerb: "tatakallam" },
-      { lb: "hien/hatt schwätzt", arPronoun: "huwa", arVerb: "yatakallam" },
+      { lb: "hien schwätzt", arPronoun: "huwa", arVerb: "yatakallam" },
+      { lb: "hatt schwätzt", arPronoun: "hiya", arVerb: "tatakallam" },
       { lb: "mir schwätzen", arPronoun: "nahnu", arVerb: "natakallam" },
       { lb: "dir schwätzt", arPronoun: "antum", arVerb: "tatakallamoon" },
       { lb: "si schwätzen", arPronoun: "hum", arVerb: "yatakallamoon" },
@@ -130,7 +142,8 @@ const VERBS = [
     forms: [
       { lb: "ech verstinn", arPronoun: "ana", arVerb: "afham" },
       { lb: "du verstees", arPronoun: "anta", arVerb: "tafham" },
-      { lb: "hien/hatt versteet", arPronoun: "huwa", arVerb: "yafham" },
+      { lb: "hien versteet", arPronoun: "huwa", arVerb: "yafham" },
+      { lb: "hatt versteet", arPronoun: "hiya", arVerb: "tafham" },
       { lb: "mir verstinn", arPronoun: "nahnu", arVerb: "nafham" },
       { lb: "dir verstitt", arPronoun: "antum", arVerb: "tafhamoon" },
       { lb: "si verstinn", arPronoun: "hum", arVerb: "yafhamoon" },
@@ -142,7 +155,8 @@ const VERBS = [
     forms: [
       { lb: "ech weess", arPronoun: "ana", arVerb: "a'lam" },
       { lb: "du wees", arPronoun: "anta", arVerb: "ta'lam" },
-      { lb: "hien/hatt weess", arPronoun: "huwa", arVerb: "ya'lam" },
+      { lb: "hien weess", arPronoun: "huwa", arVerb: "ya'lam" },
+      { lb: "hatt weess", arPronoun: "hiya", arVerb: "ta'lam" },
       { lb: "mir wëssen", arPronoun: "nahnu", arVerb: "na'lam" },
       { lb: "dir wësst", arPronoun: "antum", arVerb: "ta'lamoon" },
       { lb: "si wëssen", arPronoun: "hum", arVerb: "ya'lamoon" },
@@ -154,7 +168,8 @@ const VERBS = [
     forms: [
       { lb: "ech gesinn", arPronoun: "ana", arVerb: "ara" },
       { lb: "du gesäis", arPronoun: "anta", arVerb: "tara" },
-      { lb: "hien/hatt gesäit", arPronoun: "huwa", arVerb: "yara" },
+      { lb: "hien gesäit", arPronoun: "huwa", arVerb: "yara" },
+      { lb: "hatt gesäit", arPronoun: "hiya", arVerb: "tara" },
       { lb: "mir gesinn", arPronoun: "nahnu", arVerb: "nara" },
       { lb: "dir gesitt", arPronoun: "antum", arVerb: "tarawn" },
       { lb: "si gesinn", arPronoun: "hum", arVerb: "yarawn" },
@@ -166,7 +181,8 @@ const VERBS = [
     forms: [
       { lb: "ech kucken", arPronoun: "ana", arVerb: "andhur" },
       { lb: "du kucks", arPronoun: "anta", arVerb: "tandhur" },
-      { lb: "hien/hatt kuckt", arPronoun: "huwa", arVerb: "yandhur" },
+      { lb: "hien kuckt", arPronoun: "huwa", arVerb: "yandhur" },
+      { lb: "hatt kuckt", arPronoun: "hiya", arVerb: "tandhur" },
       { lb: "mir kucken", arPronoun: "nahnu", arVerb: "nandhur" },
       { lb: "dir kuckt", arPronoun: "antum", arVerb: "tandhuroon" },
       { lb: "si kucken", arPronoun: "hum", arVerb: "yandhuroon" },
@@ -176,11 +192,10 @@ const VERBS = [
 
 // Flatten VERBS into individual quiz items. `stage` is either "infinitive"
 // or "form" so the app can filter by item type; `level` is the tier the item
-// belongs to (1: infinitives, 2: ana/anta/huwa, 3: nahnu/antum/hum) so the
-// app can filter by the active level. PERSONS[0..2] (ech/du/hien-hatt, i.e.
-// ana/anta/huwa) are level 2; PERSONS[3..5] (mir/dir/si, i.e.
-// nahnu/antum/hum) are level 3 -- structured now as the extension point for
-// a future Level 3 unlock, not yet reachable in the UI.
+// belongs to (1: infinitives, 2: ana/anta/huwa/hiya, 3: nahnu/antum/hum) so
+// the app can filter by the active level. PERSONS[0..3] (ech/du/hien/hatt,
+// i.e. ana/anta/huwa/hiya) are level 2; PERSONS[4..6] (mir/dir/si, i.e.
+// nahnu/antum/hum) are level 3.
 //
 // `answer` is the primary grading target (verb-only for conjugated forms,
 // since the Lëtzebuergesch prompt already establishes the subject).
@@ -207,7 +222,7 @@ function buildItems() {
         id: `${verb.id}.${PERSONS[i]}`,
         verbId: verb.id,
         stage: "form",
-        level: i < 3 ? 2 : 3,
+        level: i < 4 ? 2 : 3,
         prompt: form.lb,
         gloss: verb.infinitive.en,
         answer: form.arVerb,

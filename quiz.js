@@ -14,7 +14,7 @@
   const LEVEL_POOLS = { 1: LEVEL1_ITEMS, 2: LEVEL2_ITEMS, 3: LEVEL3_ITEMS };
   const LEVEL_LABELS = {
     1: "Level 1 — infinitives",
-    2: "Level 2 — ana, anta, huwa",
+    2: "Level 2 — ana, anta, huwa, hiya",
     3: "Level 3 — nahnu, antum, hum",
   };
 
@@ -35,10 +35,10 @@
     },
     2: {
       pool: LEVEL2_ITEMS,
-      total: LEVEL2_ITEMS.length, // 39
-      // 33/39 is ~84.6% (just under 85%); 34/39 is ~87.2%, the smallest
+      total: LEVEL2_ITEMS.length, // 52
+      // 44/52 is ~84.6% (just under 85%); 45/52 is ~86.5%, the smallest
       // count that clears 85%.
-      passThreshold: 34,
+      passThreshold: 45,
       nextLevel: 3,
       unlockMessage: "Level 3 unlocked!",
       actionLabel: "Start Level 3 →",
