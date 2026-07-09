@@ -32,22 +32,31 @@
 
   <main class="quiz-card" id="quiz-card">
     <p class="level-label" id="level-label"></p>
-    <p class="level-up-message" id="level-up-message" hidden></p>
-    <p class="gloss" id="gloss"></p>
-    <p class="prompt" id="prompt"></p>
-    <form id="answer-form" autocomplete="off">
-      <input
-        id="answer-input"
-        type="text"
-        inputmode="latin"
-        autocapitalize="off"
-        autocorrect="off"
-        spellcheck="false"
-        placeholder="arabic transliteration"
-      />
-      <button type="submit">Check</button>
-    </form>
-    <p class="feedback" id="feedback"></p>
+
+    <div id="question-view">
+      <p class="gloss" id="gloss"></p>
+      <p class="prompt" id="prompt"></p>
+      <form id="answer-form" autocomplete="off">
+        <input
+          id="answer-input"
+          type="text"
+          inputmode="latin"
+          autocapitalize="off"
+          autocorrect="off"
+          spellcheck="false"
+          placeholder="arabic transliteration"
+        />
+        <button type="submit">Check</button>
+      </form>
+      <p class="progress-counter" id="progress-counter" hidden></p>
+      <p class="feedback" id="feedback"></p>
+    </div>
+
+    <div class="result-view" id="result-view" hidden>
+      <p class="result-score" id="result-score"></p>
+      <p class="result-message" id="result-message"></p>
+      <button class="result-action" id="result-action" type="button"></button>
+    </div>
   </main>
 
   <section class="export-section" id="export-section" hidden>

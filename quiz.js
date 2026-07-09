@@ -2,15 +2,15 @@
   "use strict";
 
   const STORAGE_KEY = "arabic-quiz-state-v1";
-  const UNLOCK_STREAK = 2; // correct-in-a-row streak needed to unlock the next level
   const MASTERY_STREAK = 2; // streak needed for an item to count toward a verb milestone
 
   const LEVEL1_ITEMS = ITEMS.filter((item) => item.level === 1);
   const LEVEL2_ITEMS = ITEMS.filter((item) => item.level === 2);
   // Level 3 (nahnu/antum/hum) mirrors Level 2's shape but has no unlock path
-  // wired up yet. Extension point: once LEVEL2_ITEMS are all mastered (same
-  // UNLOCK_STREAK pattern as the Level 1 -> 2 check in checkLevelUp below),
-  // set state.level = 3 there and return true the same way.
+  // wired up yet. Extension point: once there's a policy for unlocking it
+  // (fixed test like Level 1, or a streak-based gate like Level 1 used to
+  // be), set state.level = 3 wherever that condition is checked and give it
+  // the same treatment Level 1/2 get below.
   const LEVEL3_ITEMS = ITEMS.filter((item) => item.level === 3);
 
   const LEVEL_POOLS = { 1: LEVEL1_ITEMS, 2: LEVEL2_ITEMS, 3: LEVEL3_ITEMS };
@@ -20,11 +20,19 @@
     3: "Level 3 — nahnu, antum, hum",
   };
 
+  const ITEMS_BY_ID = new Map(ITEMS.map((item) => [item.id, item]));
+
+  const LEVEL1_TOTAL = LEVEL1_ITEMS.length; // 13
+  // 11/13 (~85%) rounds to exactly the threshold but 12/13 (~92%) is the
+  // next whole score above it, so require 12 to be unambiguously a pass.
+  const LEVEL1_PASS_THRESHOLD = 12;
+
   // ---------- state ----------
 
   function defaultState() {
     return {
       level: 1, // 1 | 2 | 3 (3 has no unlock path yet, see LEVEL3_ITEMS above)
+      level1Test: null, // { order, index, correctCount, done, passed } -- current Level 1 attempt
       items: {}, // id -> { correct, incorrect, streak }
       totalAnswered: 0,
       totalCorrect: 0,
@@ -55,19 +63,6 @@
     return state.items[id] || { correct: 0, incorrect: 0, streak: 0 };
   }
 
-  function checkLevelUp() {
-    if (state.level === 1) {
-      const allMastered = LEVEL1_ITEMS.every(
-        (item) => getItemStats(item.id).streak >= UNLOCK_STREAK
-      );
-      if (allMastered) {
-        state.level = 2;
-        return true;
-      }
-    }
-    return false;
-  }
-
   function recordAnswer(id, isCorrect) {
     const stats = getItemStats(id);
     if (isCorrect) {
@@ -87,10 +82,7 @@
       state.currentStreak = 0;
     }
 
-    const leveledUp = checkLevelUp();
     checkMilestones();
-    saveState();
-    return leveledUp;
   }
 
   function checkMilestones() {
@@ -110,7 +102,37 @@
     });
   }
 
-  // ---------- item selection ----------
+  // ---------- Level 1 fixed test ----------
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = a[i];
+      a[i] = a[j];
+      a[j] = tmp;
+    }
+    return a;
+  }
+
+  function newLevel1Test() {
+    return {
+      order: shuffle(LEVEL1_ITEMS.map((item) => item.id)),
+      index: 0,
+      correctCount: 0,
+      done: false,
+      passed: false,
+    };
+  }
+
+  function ensureLevel1Test() {
+    if (!state.level1Test) {
+      state.level1Test = newLevel1Test();
+      saveState();
+    }
+  }
+
+  // ---------- item selection (Level 2 / Level 3 continuous practice) ----------
 
   function activePool() {
     return LEVEL_POOLS[state.level] || LEVEL1_ITEMS;
@@ -118,8 +140,7 @@
 
   let lastItemId = null;
 
-  function pickNextItem() {
-    const pool = activePool();
+  function pickWeightedItem(pool) {
     // Never repeat the immediately preceding item, unless the pool is too
     // small to avoid it.
     const candidates =
@@ -143,13 +164,18 @@
     statAccuracy: document.getElementById("stat-accuracy"),
     statTotal: document.getElementById("stat-total"),
     levelLabel: document.getElementById("level-label"),
-    levelUpMessage: document.getElementById("level-up-message"),
+    questionView: document.getElementById("question-view"),
     gloss: document.getElementById("gloss"),
     prompt: document.getElementById("prompt"),
     form: document.getElementById("answer-form"),
     input: document.getElementById("answer-input"),
     submitBtn: document.querySelector("#answer-form button[type=submit]"),
+    progressCounter: document.getElementById("progress-counter"),
     feedback: document.getElementById("feedback"),
+    resultView: document.getElementById("result-view"),
+    resultScore: document.getElementById("result-score"),
+    resultMessage: document.getElementById("result-message"),
+    resultAction: document.getElementById("result-action"),
     exportSection: document.getElementById("export-section"),
     exportJson: document.getElementById("export-json"),
     exportCopy: document.getElementById("export-copy"),
@@ -177,11 +203,44 @@
     els.levelLabel.textContent = LEVEL_LABELS[state.level] || "";
   }
 
+  function showQuestionView() {
+    els.questionView.hidden = false;
+    els.resultView.hidden = true;
+  }
+
+  function showResultView() {
+    els.questionView.hidden = true;
+    els.resultView.hidden = false;
+
+    const test = state.level1Test;
+    const pct = Math.round((test.correctCount / LEVEL1_TOTAL) * 100);
+    els.resultScore.textContent = `${test.correctCount}/${LEVEL1_TOTAL} (${pct}%)`;
+
+    if (test.passed) {
+      els.resultMessage.textContent = "Level 2 unlocked!";
+      els.resultMessage.className = "result-message pass";
+      els.resultAction.textContent = "Start Level 2 →";
+    } else {
+      els.resultMessage.textContent = `Not quite — ${LEVEL1_PASS_THRESHOLD}/${LEVEL1_TOTAL} needed to pass.`;
+      els.resultMessage.className = "result-message fail";
+      els.resultAction.textContent = "Retry";
+    }
+  }
+
   function renderQuestion() {
-    currentItem = pickNextItem();
+    if (state.level === 1) {
+      ensureLevel1Test();
+      const test = state.level1Test;
+      currentItem = ITEMS_BY_ID.get(test.order[test.index]);
+      els.progressCounter.hidden = false;
+      els.progressCounter.textContent = `${test.index + 1}/${LEVEL1_TOTAL}`;
+    } else {
+      currentItem = pickWeightedItem(activePool());
+      els.progressCounter.hidden = true;
+    }
     lastItemId = currentItem.id;
+
     awaitingNext = false;
-    els.levelUpMessage.hidden = true;
     els.gloss.textContent = currentItem.gloss;
     els.prompt.textContent = currentItem.prompt;
     els.input.value = "";
@@ -204,10 +263,20 @@
     els.exportJson.value = JSON.stringify(entries, null, 2);
   }
 
-  function renderAll() {
+  function render() {
     renderStats();
     renderLevelLabel();
     renderExportSection();
+
+    if (state.level === 1) {
+      ensureLevel1Test();
+      if (state.level1Test.done) {
+        showResultView();
+        return;
+      }
+    }
+    showQuestionView();
+    renderQuestion();
   }
 
   // ---------- word list ----------
@@ -253,29 +322,55 @@
       if (!value) return;
 
       const correct = isCorrectForItem(value, currentItem);
-      const leveledUp = recordAnswer(currentItem.id, correct);
+      recordAnswer(currentItem.id, correct);
+
+      let isLastLevel1Question = false;
+      if (state.level === 1) {
+        const test = state.level1Test;
+        if (correct) test.correctCount += 1;
+        isLastLevel1Question = test.index === LEVEL1_TOTAL - 1;
+      }
 
       els.feedback.className = "feedback " + (correct ? "correct" : "incorrect");
       els.feedback.textContent = correct
         ? "Correct."
         : `Not quite — ${currentItem.displayAnswer}`;
 
-      if (leveledUp) {
-        els.levelUpMessage.textContent = `Level ${state.level} unlocked`;
-        els.levelUpMessage.hidden = false;
-      }
-
       els.input.disabled = true;
-      els.submitBtn.textContent = "Next";
+      els.submitBtn.textContent = isLastLevel1Question ? "See results" : "Next";
       awaitingNext = true;
 
+      saveState();
       renderStats();
-      renderLevelLabel();
       renderExportSection();
       els.submitBtn.focus();
+    } else if (state.level === 1) {
+      const test = state.level1Test;
+      test.index += 1;
+      if (test.index >= LEVEL1_TOTAL) {
+        test.done = true;
+        test.passed = test.correctCount >= LEVEL1_PASS_THRESHOLD;
+        saveState();
+        showResultView();
+      } else {
+        saveState();
+        renderQuestion();
+      }
     } else {
       renderQuestion();
     }
+  });
+
+  els.resultAction.addEventListener("click", function () {
+    const test = state.level1Test;
+    if (test.passed) {
+      state.level = 2;
+      state.level1Test = null;
+    } else {
+      state.level1Test = newLevel1Test();
+    }
+    saveState();
+    render();
   });
 
   els.exportCopy.addEventListener("click", function () {
@@ -299,6 +394,5 @@
 
   // ---------- init ----------
 
-  renderAll();
-  renderQuestion();
+  render();
 })();
