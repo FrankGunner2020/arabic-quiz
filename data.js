@@ -165,7 +165,7 @@ const VERBS = [
     infinitive: { lb: "kucken", ar: "yandhur", en: "to look / watch" },
     forms: [
       { lb: "ech kucken", arPronoun: "ana", arVerb: "andhur" },
-      { lb: "du kuckst", arPronoun: "anta", arVerb: "tandhur" },
+      { lb: "du kucks", arPronoun: "anta", arVerb: "tandhur" },
       { lb: "hien/hatt kuckt", arPronoun: "huwa", arVerb: "yandhur" },
       { lb: "mir kucken", arPronoun: "nahnu", arVerb: "nandhur" },
       { lb: "dir kuckt", arPronoun: "antum", arVerb: "tandhuroon" },
