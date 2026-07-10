@@ -57,9 +57,24 @@ function isAnswerCorrect(input, correct) {
 
 // Grades against an item's primary answer (verb-only for conjugated forms),
 // falling back to the full pronoun+verb phrase if the item has one.
+//
+// The altAnswer fallback intentionally does NOT go through
+// isAnswerCorrect's Levenshtein typo tolerance -- only an exact
+// (post-normalization) match. Reusing the same tolerance here reopened
+// exactly the bug the first-character lock above was built to close: with
+// a pronoun prefixed onto the verb (e.g. "anta tamlik"), the *string's*
+// first character is the shared pronoun, so a wrong/missing verb-initial
+// letter (e.g. typing "anta amlik", dropping the leading t- of "tamlik")
+// still has normInput[0] === normCorrect[0] and can be a single-character
+// edit away -- the lock never actually inspects the verb's own leading
+// letter once something sits in front of it. The primary answer is
+// verb-only, so it isn't exposed to this; the altAnswer is a bonus
+// acceptance for people who type the full phrase out of habit, not the
+// main graded target, so losing typo tolerance there is an acceptable
+// trade for closing this off.
 function isCorrectForItem(input, item) {
   if (isAnswerCorrect(input, item.answer)) return true;
-  if (item.altAnswer && isAnswerCorrect(input, item.altAnswer)) return true;
+  if (item.altAnswer && normalizeAnswer(input) === normalizeAnswer(item.altAnswer)) return true;
   return false;
 }
 

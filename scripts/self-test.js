@@ -11,7 +11,7 @@
 //
 // Run with: node scripts/self-test.js
 
-const { ITEMS } = require("../data.js");
+const { ITEMS, VERBS, PERSONS } = require("../data.js");
 const { isAnswerCorrect, isCorrectForItem } = require("../matching.js");
 
 let pass = 0;
@@ -39,6 +39,42 @@ for (const item of ITEMS) {
     } else {
       fail++;
       console.log(`FAIL: ${item.id} -> isCorrectForItem("${typed}", item) with apostrophe variant U+${variant.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}`);
+    }
+  }
+}
+
+// Regression test: the right pronoun paired with the *wrong verb* must
+// never grade as correct via the altAnswer (pronoun+verb) fallback, even
+// though the pronoun makes the overall string's first character line up.
+// This is exactly the shape of a real bug: "anta amlik" (anta's pronoun
+// grafted onto ana's verb "amlik", i.e. hunn's "tamlik" missing its
+// leading t-) graded as correct for "du hues" (hunn.du, altAnswer "anta
+// tamlik"), because isAnswerCorrect's typo tolerance only checks the
+// *string's* first character -- the shared pronoun -- never the verb's
+// own leading letter once something is prefixed onto it. Fixed by
+// requiring an exact normalized match for the altAnswer fallback (no
+// typo tolerance there at all); this guards against that regressing.
+for (const verb of VERBS) {
+  const conjugated = verb.forms.map((form, i) => ({ form, person: PERSONS[i] }));
+  const anaEntry = conjugated.find((c) => c.person === "ech"); // ana form
+  if (!anaEntry) continue;
+
+  for (const { form, person } of conjugated) {
+    if (person === "ech") continue; // nothing to cross with itself
+    const item = ITEMS.find((it) => it.id === `${verb.id}.${person}`);
+    if (!item || !item.altAnswer) continue;
+
+    const corrupted = `${form.arPronoun} ${anaEntry.form.arVerb}`;
+    if (corrupted === item.altAnswer) continue; // no real cross-check possible
+
+    const ok = !isCorrectForItem(corrupted, item);
+    if (ok) {
+      pass++;
+    } else {
+      fail++;
+      console.log(
+        `FAIL: ${item.id} -> isCorrectForItem("${corrupted}", item) should be false (right pronoun, wrong verb)`
+      );
     }
   }
 }
