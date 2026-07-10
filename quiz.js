@@ -53,7 +53,13 @@
 
   function defaultState() {
     return {
-      level: 1, // 1 | 2 | 3
+      level: 1, // 1 | 2 | 3 -- the level currently being practiced; can move
+      // backward if the user revisits an earlier, already-passed level from
+      // the home screen, so it is NOT what gates unlocking (see
+      // unlockedLevel below).
+      unlockedLevel: 1, // highest level ever reached; only ever increases.
+      // Used for home-screen unlock gating instead of `level` so that
+      // replaying an earlier level never re-locks a later one.
       test: null, // { order, index, correctCount, done, passed } -- current fixed-test attempt (levels 1/2 only)
       items: {}, // id -> { correct, incorrect, streak }
       // Session stats (streak/accuracy/answered), tracked separately per
@@ -61,6 +67,11 @@
       // another's. Accumulates across retries within a level (a Level 1
       // retry doesn't zero these out) rather than resetting per attempt.
       levelStats: { 1: freshLevelStats(), 2: freshLevelStats(), 3: freshLevelStats() },
+      // Snapshot of each fixed-test level's most recent passing attempt
+      // (score/total), taken right before the live test object is cleared
+      // on advancing. Purely for the home screen's "Passed — X/Y" display;
+      // doesn't feed back into scoring or unlock logic.
+      lastTest: { 1: null, 2: null },
       milestones: [], // verb ids that have reached full mastery (historical, never removed)
       pendingExport: [], // milestones not yet copied into progress-log.json
     };
@@ -71,7 +82,12 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return defaultState();
       const parsed = JSON.parse(raw);
-      return Object.assign(defaultState(), parsed);
+      const merged = Object.assign(defaultState(), parsed);
+      // Migration safety: saves from before unlockedLevel existed shouldn't
+      // suddenly appear to have levels 2/3 locked just because the field
+      // was missing.
+      merged.unlockedLevel = Math.max(merged.unlockedLevel || 1, merged.level || 1);
+      return merged;
     } catch (e) {
       return defaultState();
     }
@@ -154,11 +170,21 @@
   function ensureTest() {
     const cfg = TEST_CONFIG[state.level];
     if (!cfg) return;
-    // A saved in-progress test can reference item ids that no longer exist
-    // after a data.js edit (e.g. the huwa/hiya split renamed
-    // "verb.hien-hatt" to "verb.hien"/"verb.hatt"). Discard it rather than
-    // crashing on the missing lookup.
-    if (state.test && !state.test.order.every((id) => ITEMS_BY_ID.has(id))) {
+    // A saved test can be stale in two ways: it can reference item ids that
+    // no longer exist after a data.js edit (e.g. the huwa/hiya split
+    // renamed "verb.hien-hatt" to "verb.hien"/"verb.hatt"), or -- now that
+    // the home screen lets state.level move around freely -- it can belong
+    // to a *different* level than the one we're about to render (e.g. an
+    // in-progress Level 2 test still sitting in state.test after navigating
+    // home and into Level 1). Either way, discard rather than crash or show
+    // the wrong pool.
+    if (
+      state.test &&
+      !state.test.order.every((id) => {
+        const item = ITEMS_BY_ID.get(id);
+        return item && item.level === state.level;
+      })
+    ) {
       state.test = null;
     }
     if (!state.test) {
@@ -194,7 +220,43 @@
 
   // ---------- DOM ----------
 
+  // "home" | "quiz". Not persisted -- every page load starts on the home
+  // screen (a navigation hub across the three levels) rather than always
+  // dropping back into whichever level was last active. Navigating between
+  // views never touches in-progress test data, so leaving mid-attempt and
+  // coming back via the Home/level-card buttons is lossless.
+  let view = "home";
+
   const els = {
+    homeBtn: document.getElementById("home-btn"),
+    homeView: document.getElementById("home-view"),
+    quizViewRoot: document.getElementById("quiz-view-root"),
+    levelCards: {
+      1: {
+        button: document.getElementById("level-card-1"),
+        lock: document.getElementById("level-card-lock-1"),
+        status: document.getElementById("level-card-status-1"),
+        track: document.getElementById("level-progress-track-1"),
+        fill: document.getElementById("level-progress-fill-1"),
+        note: document.getElementById("level-card-note-1"),
+      },
+      2: {
+        button: document.getElementById("level-card-2"),
+        lock: document.getElementById("level-card-lock-2"),
+        status: document.getElementById("level-card-status-2"),
+        track: document.getElementById("level-progress-track-2"),
+        fill: document.getElementById("level-progress-fill-2"),
+        note: document.getElementById("level-card-note-2"),
+      },
+      3: {
+        button: document.getElementById("level-card-3"),
+        lock: document.getElementById("level-card-lock-3"),
+        status: document.getElementById("level-card-status-3"),
+        track: document.getElementById("level-progress-track-3"),
+        fill: document.getElementById("level-progress-fill-3"),
+        note: document.getElementById("level-card-note-3"),
+      },
+    },
     statStreak: document.getElementById("stat-streak"),
     statAccuracy: document.getElementById("stat-accuracy"),
     statTotal: document.getElementById("stat-total"),
@@ -301,7 +363,7 @@
     els.exportJson.value = JSON.stringify(entries, null, 2);
   }
 
-  function render() {
+  function renderQuizView() {
     renderStats();
     renderLevelLabel();
     renderExportSection();
@@ -315,6 +377,147 @@
     }
     showQuestionView();
     renderQuestion();
+  }
+
+  // ---------- home screen ----------
+
+  function levelUnlocked(level) {
+    return state.unlockedLevel >= level;
+  }
+
+  function passedResult(correctCount, total) {
+    const pct = Math.round((correctCount / total) * 100);
+    return {
+      clickable: true,
+      variant: "passed",
+      label: `Passed — ${correctCount}/${total}`,
+      percent: pct,
+      note: null,
+    };
+  }
+
+  // Computes what a home-screen level card should show. `variant` is for
+  // styling only (progress-bar color, locked/disabled look); `label` and
+  // `note` are the copy shown on the card.
+  function levelCardState(level) {
+    const cfg = TEST_CONFIG[level];
+    const unlocked = levelUnlocked(level);
+
+    if (level === 3) {
+      return unlocked
+        ? { clickable: false, variant: "coming-soon", label: "Coming soon", percent: null, note: null }
+        : {
+            clickable: false,
+            variant: "locked",
+            label: "Locked",
+            percent: null,
+            note: "Pass Level 2 to unlock.",
+          };
+    }
+
+    if (!unlocked) {
+      return {
+        clickable: false,
+        variant: "locked",
+        label: "Locked",
+        percent: null,
+        note: level === 2 ? "Pass Level 1 to unlock." : null,
+      };
+    }
+
+    // Unlocked. If this is the level currently being practiced, read the
+    // live test; otherwise it's an already-passed level left behind, so
+    // fall back to the recorded snapshot (or a generic "Passed" if the
+    // snapshot predates that bookkeeping).
+    if (state.level === level) {
+      const test = state.test;
+      if (!test) {
+        const last = state.lastTest[level];
+        return last ? passedResult(last.correctCount, last.total) : { clickable: true, variant: "not-started", label: "Not started", percent: 0, note: null };
+      }
+      if (test.done) {
+        const pct = Math.round((test.correctCount / cfg.total) * 100);
+        return {
+          clickable: true,
+          variant: test.passed ? "passed" : "failed",
+          label: test.passed
+            ? `Passed — ${test.correctCount}/${cfg.total}`
+            : `Not quite — ${test.correctCount}/${cfg.total}`,
+          percent: pct,
+          note: null,
+        };
+      }
+      // ensureTest() creates the test object as soon as the quiz view is
+      // rendered, even before the first question is answered, so index 0
+      // still reads as "Not started" rather than a premature 0% "In
+      // progress" the moment a level is merely opened.
+      if (test.index === 0) {
+        return { clickable: true, variant: "not-started", label: "Not started", percent: 0, note: null };
+      }
+      const pct = Math.round((test.index / cfg.total) * 100);
+      return { clickable: true, variant: "in-progress", label: "In progress", percent: pct, note: null };
+    }
+
+    const last = state.lastTest[level];
+    if (last) return passedResult(last.correctCount, last.total);
+    if (state.unlockedLevel > level) {
+      // Passed at some point but no snapshot on record (e.g. a save from
+      // before this bookkeeping existed).
+      return { clickable: true, variant: "passed", label: "Passed", percent: 100, note: null };
+    }
+    return { clickable: true, variant: "not-started", label: "Not started", percent: 0, note: null };
+  }
+
+  function renderHome() {
+    [1, 2, 3].forEach((level) => {
+      const card = els.levelCards[level];
+      const cs = levelCardState(level);
+
+      card.button.disabled = !cs.clickable;
+      card.button.classList.toggle("passed", cs.variant === "passed");
+      card.button.classList.toggle("failed", cs.variant === "failed");
+      card.lock.hidden = cs.variant !== "locked";
+      card.status.textContent = cs.label;
+
+      if (cs.percent === null) {
+        card.track.hidden = true;
+      } else {
+        card.track.hidden = false;
+        card.fill.style.width = cs.percent + "%";
+      }
+
+      if (cs.note) {
+        card.note.textContent = cs.note;
+        card.note.hidden = false;
+      } else {
+        card.note.hidden = true;
+      }
+    });
+  }
+
+  function goToLevel(level) {
+    state.level = level;
+    view = "quiz";
+    saveState();
+    render();
+  }
+
+  function goHome() {
+    view = "home";
+    render();
+  }
+
+  function render() {
+    els.homeBtn.hidden = view === "home";
+    if (view === "home") {
+      els.homeView.hidden = false;
+      els.quizViewRoot.hidden = true;
+      renderHome();
+    } else {
+      els.homeView.hidden = true;
+      els.quizViewRoot.hidden = false;
+      renderQuizView();
+    }
   }
 
   // ---------- word list ----------
@@ -405,6 +608,8 @@
     const cfg = TEST_CONFIG[state.level];
     const test = state.test;
     if (test.passed) {
+      state.lastTest[state.level] = { correctCount: test.correctCount, total: cfg.total };
+      state.unlockedLevel = Math.max(state.unlockedLevel, cfg.nextLevel);
       state.level = cfg.nextLevel;
       state.test = null;
     } else {
@@ -431,6 +636,13 @@
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !els.wordListOverlay.hidden) closeWordList();
+  });
+
+  els.homeBtn.addEventListener("click", goHome);
+  [1, 2, 3].forEach((level) => {
+    els.levelCards[level].button.addEventListener("click", function () {
+      goToLevel(level);
+    });
   });
 
   // ---------- init ----------

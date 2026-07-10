@@ -13,6 +13,22 @@ Live at: https://arabic-quiz-gunner-ops.vercel.app
 
 ## Mechanics
 
+**A home screen is the landing page, not any particular level.** Every page
+load opens on an overview with one card per level — status ("Not started",
+"In progress", "Passed — X/Y"), a progress bar, and a lock note for levels
+not yet unlocked — rather than always dropping back into whichever level
+was last active. Clicking an unlocked card jumps straight into that level,
+resuming an in-progress attempt if one exists or starting fresh otherwise;
+replaying an already-passed level is always allowed and never re-locks a
+later level (unlocking only ever moves forward, tracked separately from
+"which level am I currently looking at"). A "Home" button appears in the
+header once you're inside a level, so you can back out to the overview
+mid-attempt without losing progress — in-progress test state is only ever
+discarded if you navigate into a *different* level while one is unfinished.
+Level 3's card shows "Coming soon" once unlocked rather than linking into
+its practice mode, since Level 3 doesn't have a defined completion/unlock
+flow of its own yet (see below).
+
 **Three levels, strictly separated, each with its own progression style.**
 
 1. *Level 1 — infinitives* — the 13 verb infinitives only, run as a fixed
@@ -129,7 +145,7 @@ mir/dir/si forms) that the app filters on for the active level's pool.
 ## Files
 
 ```
-index.html         markup: stats bar, quiz card, export panel
+index.html         markup: header, home screen, quiz card, export panel
 style.css          navy/soft-blue reference palette
 data.js            the 13 verbs, their forms, and the ITEMS flattening
 quiz.js            answer matching, item selection, leveling, stats, persistence, rendering
