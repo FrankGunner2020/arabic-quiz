@@ -351,6 +351,28 @@
     els.input.focus();
   }
 
+  // Renders "Not quite — " followed by the correct answer with a
+  // character-level diff overlay against what was actually typed. Grading
+  // has already happened by the time this runs (isCorrectForItem already
+  // returned false) -- this is purely visualizing where the divergence
+  // is, against the item's primary answer (the verb-only string that was
+  // actually graded, not the full pronoun+verb displayAnswer).
+  function renderAnswerDiff(rawInput, item) {
+    els.feedback.textContent = "";
+
+    els.feedback.appendChild(document.createTextNode("Not quite — "));
+
+    const diffEl = document.createElement("span");
+    diffEl.className = "answer-diff";
+    diffAnswer(rawInput, item.answer).forEach((seg) => {
+      const span = document.createElement("span");
+      span.className = "diff-" + seg.kind;
+      span.textContent = seg.text;
+      diffEl.appendChild(span);
+    });
+    els.feedback.appendChild(diffEl);
+  }
+
   function renderExportSection() {
     const hasPending = state.pendingExport.length > 0;
     els.exportSection.hidden = !hasPending;
@@ -574,9 +596,11 @@
       }
 
       els.feedback.className = "feedback " + (correct ? "correct" : "incorrect");
-      els.feedback.textContent = correct
-        ? "Correct."
-        : `Not quite — ${currentItem.displayAnswer}`;
+      if (correct) {
+        els.feedback.textContent = "Correct.";
+      } else {
+        renderAnswerDiff(value, currentItem);
+      }
 
       els.input.disabled = true;
       els.submitBtn.textContent = isLastTestQuestion ? "See results" : "Next";

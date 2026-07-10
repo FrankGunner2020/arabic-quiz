@@ -347,6 +347,36 @@ body {
   background: var(--incorrect-bg);
 }
 
+.answer-diff {
+  font-family: var(--mono);
+  font-style: italic;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+}
+
+.diff-match {
+  color: var(--arabic);
+}
+
+.diff-sub {
+  color: var(--incorrect);
+  text-decoration: underline;
+  text-decoration-color: var(--incorrect);
+}
+
+.diff-missing {
+  color: var(--ink-dim);
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-decoration-color: var(--ink-dim);
+}
+
+.diff-extra {
+  color: var(--incorrect);
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
 /* result view */
 
 .result-view {
