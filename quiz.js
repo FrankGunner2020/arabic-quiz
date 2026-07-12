@@ -20,6 +20,48 @@
 
   const ITEMS_BY_ID = new Map(ITEMS.map((item) => [item.id, item]));
 
+  // Arabic pronoun for each Lëtzebuergesch person key. The person key
+  // itself IS the Lëtzebuergesch pronoun word used in every prompt for that
+  // person (e.g. "du gees"), so no separate lb-pronoun table is needed.
+  const PERSON_AR = {
+    ech: "ana",
+    du: "anta",
+    hien: "huwa",
+    hatt: "hiya",
+    mir: "nahnu",
+    dir: "antum",
+    si: "hum",
+  };
+  // Which persons (as PERSONS keys) belong to each level's pronoun set, for
+  // the pronoun pill and the milestone dots. Level 1 (infinitives) has none.
+  const LEVEL_PRONOUNS = {
+    2: ["ech", "du", "hien", "hatt"],
+    3: ["mir", "dir", "si"],
+  };
+  const LEVEL_PRONOUN_LIST = {
+    1: "The infinitives",
+    2: "Ana, anta, huwa, hiya",
+    3: "Nahnu, antum, hum",
+  };
+  // CSS custom property name (defined in style.css) for each person's
+  // milestone dot color.
+  const DOT_VAR = {
+    ech: "--dot-ana",
+    du: "--dot-anta",
+    hien: "--dot-huwa",
+    hatt: "--dot-hiya",
+    mir: "--dot-nahnu",
+    dir: "--dot-antum",
+    si: "--dot-hum",
+  };
+
+  // A conjugated-form item's id is `${verbId}.${person}`; infinitives
+  // (`${verbId}.inf`) have no person. Returns null for infinitives.
+  function personOf(item) {
+    if (item.stage !== "form") return null;
+    return item.id.slice(item.id.lastIndexOf(".") + 1);
+  }
+
   // Levels with a fixed-length pass/fail test, keyed by level number. All
   // three levels currently use this. A future level could still fall back
   // to continuous practice (see the weighted item picker further below) by
@@ -89,6 +131,14 @@
       lastTest: { 1: null, 2: null, 3: null },
       milestones: [], // verb ids that have reached full mastery (historical, never removed)
       pendingExport: [], // milestones not yet copied into progress-log.json
+      // Persistent "Day N · X answered today" header line. dayCount is
+      // consecutive CALENDAR days with >=1 answered question (a gap of a
+      // day or more resets it to 1, not 0, so the header always reads as
+      // "you're on day N" rather than implying zero days of practice).
+      // todayCount resets silently on the first answer of a new day.
+      dayCount: 1,
+      todayCount: 0,
+      lastPracticeDate: null, // "YYYY-MM-DD" of the last answered question
     };
   }
 
@@ -118,7 +168,30 @@
     return state.items[id] || { correct: 0, incorrect: 0, streak: 0 };
   }
 
+  function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  // Updates dayCount/todayCount for the header's "Day N · X answered
+  // today" line. Only runs on an actual answer (not on page load/render),
+  // per the spec: same day -> just bump todayCount; yesterday -> increment
+  // dayCount; anything else (including the very first answer ever, where
+  // lastPracticeDate is null) -> reset dayCount to 1. No guilt copy, no
+  // color change on reset -- the number just changes.
+  function touchPracticeDay() {
+    const today = todayStr();
+    if (state.lastPracticeDate === today) {
+      state.todayCount += 1;
+      return;
+    }
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    state.dayCount = state.lastPracticeDate === yesterday ? state.dayCount + 1 : 1;
+    state.lastPracticeDate = today;
+    state.todayCount = 1;
+  }
+
   function recordAnswer(id, isCorrect) {
+    touchPracticeDay();
     const stats = getItemStats(id);
     if (isCorrect) {
       stats.correct += 1;
@@ -248,13 +321,16 @@
   let view = "home";
 
   const els = {
+    practiceDay: document.getElementById("practice-day"),
+    practiceCount: document.getElementById("practice-count"),
     homeBtn: document.getElementById("home-btn"),
     homeView: document.getElementById("home-view"),
     quizViewRoot: document.getElementById("quiz-view-root"),
+    quizCard: document.getElementById("quiz-card"),
     levelCards: {
       1: {
         button: document.getElementById("level-card-1"),
-        lock: document.getElementById("level-card-lock-1"),
+        fraction: document.getElementById("level-card-fraction-1"),
         status: document.getElementById("level-card-status-1"),
         track: document.getElementById("level-progress-track-1"),
         fill: document.getElementById("level-progress-fill-1"),
@@ -262,7 +338,7 @@
       },
       2: {
         button: document.getElementById("level-card-2"),
-        lock: document.getElementById("level-card-lock-2"),
+        fraction: document.getElementById("level-card-fraction-2"),
         status: document.getElementById("level-card-status-2"),
         track: document.getElementById("level-progress-track-2"),
         fill: document.getElementById("level-progress-fill-2"),
@@ -270,7 +346,7 @@
       },
       3: {
         button: document.getElementById("level-card-3"),
-        lock: document.getElementById("level-card-lock-3"),
+        fraction: document.getElementById("level-card-fraction-3"),
         status: document.getElementById("level-card-status-3"),
         track: document.getElementById("level-progress-track-3"),
         fill: document.getElementById("level-progress-fill-3"),
@@ -280,7 +356,8 @@
     statStreak: document.getElementById("stat-streak"),
     statAccuracy: document.getElementById("stat-accuracy"),
     statTotal: document.getElementById("stat-total"),
-    levelLabel: document.getElementById("level-label"),
+    pillLevel: document.getElementById("pill-level"),
+    pillPronoun: document.getElementById("pill-pronoun"),
     questionView: document.getElementById("question-view"),
     gloss: document.getElementById("gloss"),
     prompt: document.getElementById("prompt"),
@@ -290,9 +367,17 @@
     progressCounter: document.getElementById("progress-counter"),
     feedback: document.getElementById("feedback"),
     resultView: document.getElementById("result-view"),
+    resultPlain: document.getElementById("result-plain"),
     resultScore: document.getElementById("result-score"),
     resultMessage: document.getElementById("result-message"),
     resultAction: document.getElementById("result-action"),
+    milestoneView: document.getElementById("milestone-view"),
+    milestoneKicker: document.getElementById("milestone-kicker"),
+    milestoneScore: document.getElementById("milestone-score"),
+    milestoneSub: document.getElementById("milestone-sub"),
+    milestoneDots: document.getElementById("milestone-dots"),
+    milestoneLine: document.getElementById("milestone-line"),
+    milestoneAction: document.getElementById("milestone-action"),
     exportSection: document.getElementById("export-section"),
     exportJson: document.getElementById("export-json"),
     exportCopy: document.getElementById("export-copy"),
@@ -306,6 +391,12 @@
 
   let currentItem = null;
   let awaitingNext = false;
+  // Cosmetic-only, not persisted: whether the streak stat should read in
+  // the "reset" color (stays true across question loads until the next
+  // correct answer, per spec) and a one-shot flag consumed by renderStats()
+  // to (re)trigger the streak bump animation on a correct answer.
+  let streakReset = false;
+  let pendingStreakBump = false;
 
   function renderStats() {
     const levelStats = state.levelStats[state.level];
@@ -315,10 +406,30 @@
       levelStats.totalAnswered === 0
         ? "—"
         : Math.round((levelStats.totalCorrect / levelStats.totalAnswered) * 100) + "%";
+
+    els.statStreak.classList.toggle("is-reset", streakReset);
+    if (pendingStreakBump) {
+      pendingStreakBump = false;
+      els.statStreak.classList.remove("bump");
+      void els.statStreak.offsetWidth; // force reflow so the animation retriggers
+      els.statStreak.classList.add("bump");
+    }
   }
 
-  function renderLevelLabel() {
-    els.levelLabel.textContent = LEVEL_LABELS[state.level] || "";
+  function renderPracticeLine() {
+    els.practiceDay.textContent = state.dayCount;
+    els.practiceCount.textContent = state.todayCount;
+  }
+
+  function renderLevelPill() {
+    els.pillLevel.textContent = `Level ${state.level}`;
+  }
+
+  function formatPassDate(dateStr) {
+    // Append a fixed time-of-day so this parses as local time everywhere,
+    // not UTC midnight (which can roll back a day in western timezones).
+    const d = new Date(`${dateStr}T00:00:00`);
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   }
 
   function showQuestionView() {
@@ -326,20 +437,57 @@
     els.resultView.hidden = true;
   }
 
+  // Populates the level-hue milestone takeover (`#milestone-view`) shown
+  // in place of the plain result view when a fixed test is genuinely
+  // passed. `pct` is the score percentage, already computed by the caller.
+  function renderMilestone(cfg, test, pct) {
+    const level = state.level;
+    const dateLabel = formatPassDate(test.passedAt || todayStr());
+    const verb = cfg.nextLevel ? "passed" : "complete";
+    els.milestoneKicker.textContent = `Level ${level} — ${verb} · ${dateLabel}`;
+
+    els.milestoneScore.textContent = "";
+    els.milestoneScore.appendChild(document.createTextNode(String(test.correctCount)));
+    const totalSpan = document.createElement("span");
+    totalSpan.textContent = `/${cfg.total}`;
+    els.milestoneScore.appendChild(totalSpan);
+
+    els.milestoneSub.textContent = `${pct}% · every form asked once, no repeats`;
+
+    const pronouns = LEVEL_PRONOUNS[level] || [];
+    els.milestoneDots.innerHTML = "";
+    pronouns.forEach((person) => {
+      const dot = document.createElement("span");
+      dot.style.background = `var(${DOT_VAR[person]})`;
+      els.milestoneDots.appendChild(dot);
+    });
+    els.milestoneDots.hidden = pronouns.length === 0;
+
+    const list = LEVEL_PRONOUN_LIST[level] || "";
+    els.milestoneLine.textContent = cfg.nextLevel
+      ? `${list} — yours. Level ${cfg.nextLevel} unlocked.`
+      : `${list} — yours. Every level complete.`;
+
+    els.milestoneAction.textContent = cfg.actionLabel;
+  }
+
   function showResultView() {
     els.questionView.hidden = true;
     els.resultView.hidden = false;
+    els.pillPronoun.hidden = true; // no single "current question" on a result screen
 
     const cfg = TEST_CONFIG[state.level];
     const test = state.test;
     const pct = Math.round((test.correctCount / cfg.total) * 100);
-    els.resultScore.textContent = `${test.correctCount}/${cfg.total} (${pct}%)`;
 
     if (test.passed) {
-      els.resultMessage.textContent = cfg.unlockMessage;
-      els.resultMessage.className = "result-message pass";
-      els.resultAction.textContent = cfg.actionLabel;
+      els.resultPlain.hidden = true;
+      els.milestoneView.hidden = false;
+      renderMilestone(cfg, test, pct);
     } else {
+      els.resultPlain.hidden = false;
+      els.milestoneView.hidden = true;
+      els.resultScore.textContent = `${test.correctCount}/${cfg.total} (${pct}%)`;
       els.resultMessage.textContent = `Not quite — ${cfg.passThreshold}/${cfg.total} needed to pass.`;
       els.resultMessage.className = "result-message fail";
       els.resultAction.textContent = "Retry";
@@ -359,6 +507,14 @@
       els.progressCounter.hidden = true;
     }
     lastItemId = currentItem.id;
+
+    const person = personOf(currentItem);
+    if (person) {
+      els.pillPronoun.textContent = `${PERSON_AR[person]} · ${person}`;
+      els.pillPronoun.hidden = false;
+    } else {
+      els.pillPronoun.hidden = true;
+    }
 
     awaitingNext = false;
     els.gloss.textContent = currentItem.gloss;
@@ -406,8 +562,13 @@
   }
 
   function renderQuizView() {
+    // Drives every var(--level...) reference in style.css for whichever
+    // level is currently active (pills, prompt plate, progress fill,
+    // milestone field) -- see the [data-level] alias block in style.css.
+    els.quizCard.dataset.level = state.level;
+
     renderStats();
-    renderLevelLabel();
+    renderLevelPill();
     renderExportSection();
 
     if (TEST_CONFIG[state.level]) {
@@ -429,7 +590,9 @@
 
   // `label` override lets level 3 (the last level, nothing further to
   // unlock) read "Completed" instead of "Passed" -- same variant/styling,
-  // different copy.
+  // different copy. A passed attempt always asked every item in the pool
+  // exactly once, so its fraction badge is always total/total (not
+  // correctCount/total -- that's what the status label is for).
   function passedResult(correctCount, total, label) {
     const pct = Math.round((correctCount / total) * 100);
     return {
@@ -438,6 +601,7 @@
       label: label || `Passed — ${correctCount}/${total}`,
       percent: pct,
       note: null,
+      fraction: { num: total, den: total },
     };
   }
 
@@ -449,7 +613,8 @@
 
   // Computes what a home-screen level card should show. `variant` is for
   // styling only (progress-bar color, locked/disabled look); `label` and
-  // `note` are the copy shown on the card.
+  // `note` are the copy shown on the card. `fraction` feeds the mono
+  // "31/52"-style badge next to the title.
   function levelCardState(level) {
     const cfg = TEST_CONFIG[level];
     const unlocked = levelUnlocked(level);
@@ -466,6 +631,7 @@
             : level === 3
             ? "Pass Level 2 to unlock."
             : null,
+        fraction: { num: 0, den: cfg.total },
       };
     }
 
@@ -479,7 +645,14 @@
         const last = state.lastTest[level];
         return last
           ? passedResult(last.correctCount, last.total, passedLabel(level, last.correctCount, last.total))
-          : { clickable: true, variant: "not-started", label: "Not started", percent: 0, note: null };
+          : {
+              clickable: true,
+              variant: "not-started",
+              label: "Not started",
+              percent: 0,
+              note: null,
+              fraction: { num: 0, den: cfg.total },
+            };
       }
       if (test.done) {
         const pct = Math.round((test.correctCount / cfg.total) * 100);
@@ -491,6 +664,10 @@
             : `Not quite — ${test.correctCount}/${cfg.total}`,
           percent: pct,
           note: null,
+          // Every item was asked exactly once whether the attempt passed
+          // or failed -- the fraction badge tracks "how much of the test
+          // did you go through", not the score (that's the label above).
+          fraction: { num: cfg.total, den: cfg.total },
         };
       }
       // ensureTest() creates the test object as soon as the quiz view is
@@ -498,10 +675,24 @@
       // still reads as "Not started" rather than a premature 0% "In
       // progress" the moment a level is merely opened.
       if (test.index === 0) {
-        return { clickable: true, variant: "not-started", label: "Not started", percent: 0, note: null };
+        return {
+          clickable: true,
+          variant: "not-started",
+          label: "Not started",
+          percent: 0,
+          note: null,
+          fraction: { num: 0, den: cfg.total },
+        };
       }
       const pct = Math.round((test.index / cfg.total) * 100);
-      return { clickable: true, variant: "in-progress", label: "In progress", percent: pct, note: null };
+      return {
+        clickable: true,
+        variant: "in-progress",
+        label: "In progress",
+        percent: pct,
+        note: null,
+        fraction: { num: test.index, den: cfg.total },
+      };
     }
 
     const last = state.lastTest[level];
@@ -509,9 +700,23 @@
     if (state.unlockedLevel > level) {
       // Passed at some point but no snapshot on record (e.g. a save from
       // before this bookkeeping existed).
-      return { clickable: true, variant: "passed", label: "Passed", percent: 100, note: null };
+      return {
+        clickable: true,
+        variant: "passed",
+        label: "Passed",
+        percent: 100,
+        note: null,
+        fraction: { num: cfg.total, den: cfg.total },
+      };
     }
-    return { clickable: true, variant: "not-started", label: "Not started", percent: 0, note: null };
+    return {
+      clickable: true,
+      variant: "not-started",
+      label: "Not started",
+      percent: 0,
+      note: null,
+      fraction: { num: 0, den: cfg.total },
+    };
   }
 
   function renderHome() {
@@ -522,8 +727,8 @@
       card.button.disabled = !cs.clickable;
       card.button.classList.toggle("passed", cs.variant === "passed");
       card.button.classList.toggle("failed", cs.variant === "failed");
-      card.lock.hidden = cs.variant !== "locked";
       card.status.textContent = cs.label;
+      card.fraction.textContent = `${cs.fraction.num}/${cs.fraction.den}`;
 
       if (cs.percent === null) {
         card.track.hidden = true;
@@ -544,6 +749,7 @@
   function goToLevel(level) {
     state.level = level;
     view = "quiz";
+    streakReset = false; // don't carry a stale reset color in from another level
     saveState();
     render();
   }
@@ -554,6 +760,7 @@
   }
 
   function render() {
+    renderPracticeLine(); // header line is visible on both home and quiz views
     els.homeBtn.hidden = view === "home";
     if (view === "home") {
       els.homeView.hidden = false;
@@ -611,6 +818,16 @@
       const correct = isCorrectForItem(value, currentItem);
       recordAnswer(currentItem.id, correct);
 
+      // Cosmetic streak-stat state, consumed by the next renderStats()
+      // call below -- see the `let streakReset`/`pendingStreakBump`
+      // declarations near the top of the DOM section.
+      if (correct) {
+        streakReset = false;
+        pendingStreakBump = true;
+      } else {
+        streakReset = true;
+      }
+
       const cfg = TEST_CONFIG[state.level];
       let isLastTestQuestion = false;
       if (cfg) {
@@ -632,6 +849,7 @@
 
       saveState();
       renderStats();
+      renderPracticeLine();
       renderExportSection();
       els.submitBtn.focus();
     } else if (TEST_CONFIG[state.level]) {
@@ -641,6 +859,7 @@
       if (test.index >= cfg.total) {
         test.done = true;
         test.passed = test.correctCount >= cfg.passThreshold;
+        if (test.passed) test.passedAt = todayStr();
         saveState();
         showResultView();
       } else {
@@ -652,7 +871,11 @@
     }
   });
 
-  els.resultAction.addEventListener("click", function () {
+  // Shared by both the plain result view's Retry/next-level button and the
+  // milestone takeover's action button -- which one is visible is decided
+  // by showResultView(), but the underlying state transition is identical
+  // either way.
+  function handleResultAction() {
     const cfg = TEST_CONFIG[state.level];
     const test = state.test;
     if (test.passed) {
@@ -669,10 +892,14 @@
       }
     } else {
       state.test = newTest(state.level);
+      streakReset = false; // fresh attempt -- don't carry the reset color over
     }
     saveState();
     render();
-  });
+  }
+
+  els.resultAction.addEventListener("click", handleResultAction);
+  els.milestoneAction.addEventListener("click", handleResultAction);
 
   els.exportCopy.addEventListener("click", function () {
     navigator.clipboard.writeText(els.exportJson.value);

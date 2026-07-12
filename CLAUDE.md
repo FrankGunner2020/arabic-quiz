@@ -9,11 +9,11 @@
 - Vercel "Deployment Protection" was manually disabled for this project (on by default for new projects) — check for this on any future fresh Vercel project for this user.
 
 ## Files
-- `index.html` — header (Home + Word list buttons), #home-view (level cards), #quiz-view-root (stats bar, quiz card, export panel), word-list modal.
-- `style.css` — palette lives in :root vars (--header-bg #1b3a6b, --border #9fb9dd, --ink #16233d, --ink-dim #5b7299, --arabic #3d6cb9, --correct/--incorrect + *-bg pairs). Flat rectangles only — no border-radius, no box-shadow anywhere. Always reference the vars, never hardcode hex. Font is Source Serif 4, only weights 400/600 loaded — never set font-weight:700 on --serif text.
+- `index.html` — header (practice line + Home/Word list buttons), #home-view (level cards), #quiz-view-root (stats band, quiz shell/panel, result view with plain-fail and milestone-pass sub-views, export panel), word-list modal.
+- `style.css` — palette + design-system tokens live in :root vars: base palette (--header-bg #1b3a6b, --border #9fb9dd, --ink #16233d, --ink-dim #5b7299, --arabic #3d6cb9, --correct/--incorrect + *-bg pairs), radii (--radius-shell/panel/plate/pill), per-level hue sets (--l1/--l2/--l3 + *-tint/*-border/*-dim/*-pale/*-kicker), milestone dot hues (--dot-*). Soft rounding + tonal layering throughout (no box-shadows anywhere — see "Visual design system" below). Always reference the vars, never hardcode hex. Font is Source Serif 4, only weights 400/600 loaded — never set font-weight:700 on --serif text.
 - `data.js` — 13 verbs x 7 persons (ech/du/hien/hatt/mir/dir/si = ana/anta/huwa/hiya/nahnu/antum/hum). `buildItems()` flattens to `ITEMS[]` with stable ids (`${verbId}.inf` or `${verbId}.${person}`) and a `level` field (1=infinitive, 2=ana/anta/huwa/hiya, 3=nahnu/antum/hum).
 - `matching.js` — grading (normalizeAnswer, levenshtein, isAnswerCorrect, isCorrectForItem) PLUS a separate, display-only diff engine (normalizeWithTrace, levenshteinAlign, diffAnswer) for incorrect-answer character-diff feedback. The two halves are independent — the diff engine never influences grading, keep it that way.
-- `quiz.js` — state, view routing (home/quiz), fixed-test machinery (levels 1/2/3), home-screen cards, per-level stats, answer-diff rendering, persistence, plus an unused continuous-practice picker kept as fallback architecture. Largest file — if it keeps growing, split by concern (test machinery / state / rendering) rather than letting one file keep absorbing everything.
+- `quiz.js` — state, view routing (home/quiz), fixed-test machinery (levels 1/2/3), home-screen cards (incl. per-card fraction badge), level-hue pills + milestone takeover rendering, the Day-N/answered-today practice line, per-level stats, answer-diff rendering, persistence, plus an unused continuous-practice picker kept as fallback architecture. Largest file — if it keeps growing, split by concern (test machinery / state / rendering) rather than letting one file keep absorbing everything.
 - `scripts/self-test.js` — run via `node scripts/self-test.js`. Asserts every item's answer grades against itself, apostrophe-variant handling, and "right pronoun + wrong verb must be rejected." Run after any data.js/matching.js edit. Must stay 100%.
 - `scripts/audit-hiya.js` — run via `node scripts/audit-hiya.js`. Verifies every hiya item's arVerb equals anta's and differs from huwa's, against a hardcoded reference table. Run after any data.js edit touching hien/hatt/hiya forms.
 - `progress-log.json` — manually-committed record of verbs reaching full mastery, via the "New milestones" export panel. Not auto-written.
@@ -29,6 +29,63 @@
 - Switching `state.level` away from an unfinished test to a DIFFERENT level discards that in-progress test (single global `state.test` slot, not per-level). Returning to the SAME level preserves progress. Known/accepted limitation, not a bug.
 - Session stats (streak/accuracy/answered) tracked per level via `state.levelStats[level]`, accumulate across retries within a level (not reset per attempt).
 - Home screen (`view = "home"|"quiz"`) is the landing page, runtime-only state, NOT persisted across reloads.
+
+## Visual design system
+Soft-roundness redesign layered onto the original navy/ivory, serif-content/
+sans-chrome system (fonts and base palette unchanged). No box-shadows
+anywhere — depth comes from tonal layering and the navy band, never shadows.
+- Radii: `--radius-shell` (18px, outer containers: header top corners, home
+  cards, quiz shell, milestone), `--radius-panel` (14px, white inner
+  panels/cards), `--radius-plate` (10px, prompt plate/input/buttons),
+  `--radius-pill` (999px, chips/tags/progress tracks).
+- Each level owns one hue (`--l1` blue, `--l2` teal, `--l3` amber) used on
+  its home-card spine, progress fill, prompt plate tint, pills, and its
+  milestone takeover field. `[data-level="1|2|3"]` (set statically on each
+  `.level-card` in the HTML, and dynamically on `#quiz-card` by
+  `renderQuizView()` from `state.level`) resolves `--level`/`--level-tint`/
+  `--level-border`/`--level-dim`/`--level-pale`/`--level-kicker` — style
+  rules should reference these generic aliases, never `--l1`/`--l2`/`--l3`
+  directly, so nothing needs a per-level CSS selector.
+- Home cards: a `--level`-colored spine, title + mono fraction badge
+  (`answered/total` in progress, `total/total` once done pass or fail, sunk
+  to `0/total` when locked or not-started — the badge tracks "how much of
+  the test have you gone through", the status label below it is what shows
+  the actual score). No lock emoji — `.level-card:disabled { opacity: .6 }`
+  alone signals locked.
+- Quiz view: a navy `.session-stats` band joins directly to the white
+  `.quiz-panel` below it (one visually continuous rounded shell). Inside
+  the panel: a level pill + pronoun pill (`anta · du` — Arabic pronoun ·
+  the Lëtzebuergesch person word, which is literally the PERSONS key already
+  used everywhere else) above a tinted `.prompt-plate`; pronoun pill hidden
+  for Level 1 (no pronoun) and on the result view (no single "current
+  question" to attribute it to).
+- Passing a fixed test shows a `.milestone` takeover (`#milestone-view`)
+  instead of the plain result view — level-hue field, kicker
+  ("Level N — passed/complete · <date>", using each test's `passedAt`
+  snapshot so a delayed revisit still shows the real pass date, not
+  "today"), giant score, pronoun dots (one per person in that level's
+  `LEVEL_PRONOUNS`, omitted for Level 1), and an unlock/completion line.
+  Failing always shows the plain `#result-plain` view (score + Retry) —
+  the takeover is reserved for genuine passes. Both `#result-action` and
+  `#milestone-action` share one `handleResultAction()` handler.
+- Header has a persistent "Day N · X answered today" line
+  (`state.dayCount`/`state.todayCount`/`state.lastPracticeDate`, updated by
+  `touchPracticeDay()` inside `recordAnswer()` — same-day answers just bump
+  the count, a gap of a day increments dayCount, any bigger gap resets it
+  to 1, never 0). Deliberately no guilt copy or warning color on a reset.
+- Micro-motion is restrained and one-shot: feedback chip fades/rises in,
+  the streak stat does a quick scale-bump on a correct answer (retriggered
+  via a forced-reflow class toggle, since the same class can't re-animate
+  by just re-adding it), the milestone takeover fades in. Everything is
+  disabled under `@media (prefers-reduced-motion: reduce)`.
+- Gotcha (real bug, not hypothetical): any element whose own CSS sets a
+  `display` value needs an explicit `#id[hidden] { display: none; }` (or
+  equivalent) rule, or the `hidden` attribute silently stops hiding it —
+  author `display` rules beat the browser's default `[hidden]{display:none}`
+  regardless of selector specificity. `#home-view` was missing this and
+  rendered on top of the quiz view; `.modal-overlay` already had the guard.
+  Check for this pattern before giving any element its own unconditional
+  `display` rule.
 
 ## Grading rules — hard-won, do not regress
 Two real bugs found in this project, same root cause both times: **the first character of the compared string matched, but the character that actually mattered (the verb's own leading letter) didn't, because something was in front of it.** Watch for a third variant of this same mistake before trusting any new compound-string comparison.

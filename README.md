@@ -15,9 +15,14 @@ Live at: https://arabic-quiz-gunner-ops.vercel.app
 
 **A home screen is the landing page, not any particular level.** Every page
 load opens on an overview with one card per level — status ("Not started",
-"In progress", "Passed — X/Y"), a progress bar, and a lock note for levels
-not yet unlocked — rather than always dropping back into whichever level
-was last active. Clicking an unlocked card jumps straight into that level,
+"In progress", "Passed — X/Y"), a mono fraction badge next to the title
+("31/52"), a progress bar, and a lock note for levels not yet unlocked —
+rather than always dropping back into whichever level was last active. Each
+level card is a soft-rounded shell with a spine in that level's own color
+(blue for Level 1, teal for Level 2, amber for Level 3) — the same hue
+carries through into that level's pills, prompt background, and progress
+fill once you're inside it. Clicking an unlocked card jumps straight into
+that level,
 resuming an in-progress attempt if one exists or starting fresh otherwise;
 replaying an already-passed level is always allowed and never re-locks a
 later level (unlocking only ever moves forward, tracked separately from
@@ -61,10 +66,34 @@ instead of unlocking anything further.
    show a completed state, with a Retry button on a failed attempt exactly
    like Levels 1/2.
 
-The current level is always shown as a label above the prompt. A "Word
-list" button in the header opens a reference panel listing every item in
-the active level's pool (Lëtzebuergesch alongside its Arabic phonetic form)
-for review before or during practice.
+The current level is shown as a pill above the prompt ("Level 2"), with a
+second pill next to it naming the pronoun being drilled — Arabic pronoun ·
+Lëtzebuergesch pronoun ("anta · du", "nahnu · mir") — hidden for Level 1,
+which has no pronoun, and on the result screen, where there's no longer a
+single current question to name. A "Word list" button in the header opens
+a reference panel listing every item in the active level's pool
+(Lëtzebuergesch alongside its Arabic phonetic form) for review before or
+during practice.
+
+**Passing a fixed test shows a full takeover, not just a message.** The
+result screen normally shows a plain score-and-Retry view, but a genuine
+pass replaces it with a level-hue takeover: the level's own color fills the
+card, a kicker line names the level and the actual date it was passed
+("Level 2 — passed · 18 July 2026"), the score renders large, a row of
+small dots represents the pronouns just completed (skipped for Level 1,
+which has none), and a closing line either points at the next level
+("Ana, anta, huwa, hiya — yours. Level 3 unlocked.") or, for Level 3 since
+it's the last one, declares the whole thing done ("Nahnu, antum, hum —
+yours. Every level complete.") with a button back to the home screen
+instead of a next level to jump to. Failing a test never shows this — the
+takeover is reserved for real passes.
+
+**The header keeps a running practice streak.** A persistent "Day N · X
+answered today" line sits under the subtitle on every screen. Day N counts
+consecutive calendar days with at least one answered question — a gap of a
+day or more resets it back to 1 (never 0, and never with any guilt copy or
+warning color), and "X answered today" resets silently at the first answer
+of a new day.
 
 **Answer matching is lenient, not strict.** Before comparing, both your input
 and the correct answer are lowercased, stripped of apostrophes and excess
@@ -147,7 +176,7 @@ mir/dir/si forms) that the app filters on for the active level's pool.
 
 ```
 index.html         markup: header, home screen, quiz card, export panel
-style.css          navy/soft-blue reference palette
+style.css          navy/soft-blue palette, soft-rounded radii, per-level hues
 data.js            the 13 verbs, their forms, and the ITEMS flattening
 quiz.js            answer matching, item selection, leveling, stats, persistence, rendering
 progress-log.json  dated record of verbs reaching full mastery

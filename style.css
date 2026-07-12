@@ -20,6 +20,82 @@
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* radii */
+  --radius-shell: 18px; /* outer containers: quiz shell, level cards, milestone */
+  --radius-panel: 14px; /* white inner panels, level cards */
+  --radius-plate: 10px; /* prompt plate, input, buttons */
+  --radius-pill: 999px; /* chips, tags, progress tracks */
+
+  /* level hues: base / pale tint (plates, track bg) / soft border / dim
+     text-on-tint / pale companion (text-on-level-field) / kicker tint
+     (lighter still, for mono kicker text on a level-hue field) */
+  --l1: #3d6cb9;
+  --l1-tint: #eaf1fb;
+  --l1-border: #9fb9dd;
+  --l1-dim: #5b7299;
+  --l1-pale: #9fb9dd;
+  --l1-kicker: #cfdcee;
+
+  --l2: #2f7d6d;
+  --l2-tint: #e7f2ef;
+  --l2-border: #a9cdc4;
+  --l2-dim: #2f7d6d;
+  --l2-pale: #a9cdc4;
+  --l2-kicker: #d3e8e2;
+
+  --l3: #b9853d;
+  --l3-tint: #f6eedd;
+  --l3-border: #dcc9a8;
+  --l3-dim: #946a2e;
+  --l3-pale: #dcc9a8;
+  --l3-kicker: #eee4d4;
+
+  /* milestone-takeover frame (translucent white, same across levels) */
+  --milestone-frame: rgba(255, 255, 255, 0.35);
+
+  /* pronoun dot hues (milestone only) */
+  --dot-ana: #7fa3d9;
+  --dot-anta: #bfe0d6;
+  --dot-huwa: #a293d6;
+  --dot-hiya: #cf8ab8;
+  --dot-nahnu: #e8c07a;
+  --dot-antum: #d68a6a;
+  --dot-hum: #8fa87a;
+
+  /* stats band */
+  --band: #1b3a6b;
+  --band-sep: rgba(255, 255, 255, 0.2);
+  --band-reset: #f0c9bd;
+}
+
+/* Per-level aliases -- any element carrying data-level="1|2|3" (level
+   cards, the quiz shell, the milestone takeover) resolves --level and
+   friends to that level's hue without needing per-level selectors
+   anywhere else in this file. */
+[data-level="1"] {
+  --level: var(--l1);
+  --level-tint: var(--l1-tint);
+  --level-border: var(--l1-border);
+  --level-dim: var(--l1-dim);
+  --level-pale: var(--l1-pale);
+  --level-kicker: var(--l1-kicker);
+}
+[data-level="2"] {
+  --level: var(--l2);
+  --level-tint: var(--l2-tint);
+  --level-border: var(--l2-border);
+  --level-dim: var(--l2-dim);
+  --level-pale: var(--l2-pale);
+  --level-kicker: var(--l2-kicker);
+}
+[data-level="3"] {
+  --level: var(--l3);
+  --level-tint: var(--l3-tint);
+  --level-border: var(--l3-border);
+  --level-dim: var(--l3-dim);
+  --level-pale: var(--l3-pale);
+  --level-kicker: var(--l3-kicker);
 }
 
 * {
@@ -51,6 +127,7 @@ body {
   background: var(--header-bg);
   color: var(--header-text);
   padding: 32px 24px;
+  border-radius: var(--radius-shell) var(--radius-shell) 0 0;
 }
 
 .wordmark {
@@ -70,6 +147,22 @@ body {
   letter-spacing: 0.02em;
 }
 
+.practice-line {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--header-text);
+  white-space: nowrap;
+  margin: 14px 0 16px;
+}
+
+.practice-detail {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  color: var(--header-text-dim);
+  letter-spacing: 0.04em;
+}
+
 .header-actions {
   display: flex;
   justify-content: center;
@@ -86,6 +179,7 @@ body {
   padding: 6px 16px;
   cursor: pointer;
   letter-spacing: 0.02em;
+  border-radius: var(--radius-plate);
 }
 
 .home-btn:hover,
@@ -107,26 +201,48 @@ body {
   margin-bottom: 48px;
 }
 
+/* Author `display` rules beat the browser's default [hidden]{display:none}
+   regardless of selector specificity, so any element whose own CSS sets
+   `display` needs this explicit override or the `hidden` attribute silently
+   stops hiding it. (Pre-existing gap here, unmasked by screenshot testing
+   during this redesign -- .modal-overlay already had the equivalent guard.) */
+#home-view[hidden] {
+  display: none;
+}
+
 .level-card {
   display: flex;
-  flex-direction: column;
   align-items: stretch;
   width: 100%;
   background: var(--surface);
-  border: 1px solid var(--border);
-  padding: 24px 28px;
+  border: 1px solid var(--level-border, var(--border));
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+  padding: 0;
   text-align: left;
   cursor: pointer;
   font-family: inherit;
 }
 
 .level-card:hover:not(:disabled) {
-  border-color: var(--arabic);
+  border-color: var(--level, var(--arabic));
 }
 
 .level-card:disabled {
   cursor: default;
   opacity: 0.6;
+}
+
+.level-card-spine {
+  flex: none;
+  width: 8px;
+  background: var(--level, var(--arabic));
+}
+
+.level-card-body {
+  flex: 1;
+  padding: 14px 18px;
+  min-width: 0;
 }
 
 .level-card-top {
@@ -144,12 +260,11 @@ body {
   color: var(--ink);
 }
 
-.level-card-lock {
-  font-size: 0.9rem;
-}
-
-.level-card-lock[hidden] {
-  display: none;
+.level-card-fraction {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--level, var(--arabic));
+  white-space: nowrap;
 }
 
 .level-card-status {
@@ -161,11 +276,17 @@ body {
   margin-bottom: 10px;
 }
 
+.level-card.passed .level-card-status {
+  color: var(--level, var(--correct));
+}
+
 .level-progress-track {
   display: block;
-  height: 6px;
-  background: var(--row-stripe);
-  border: 1px solid var(--border);
+  height: 5px;
+  background: var(--level-tint, var(--row-stripe));
+  border: 1px solid var(--level-border, var(--border));
+  border-radius: var(--radius-pill);
+  overflow: hidden;
 }
 
 .level-progress-track[hidden] {
@@ -176,11 +297,12 @@ body {
   display: block;
   height: 100%;
   width: 0%;
-  background: var(--arabic);
+  background: var(--level, var(--arabic));
+  border-radius: var(--radius-pill);
 }
 
 .level-card.passed .level-progress-fill {
-  background: var(--correct);
+  background: var(--level, var(--correct));
 }
 
 .level-card.failed .level-progress-fill {
@@ -203,70 +325,136 @@ body {
 
 .session-stats {
   display: flex;
-  justify-content: center;
-  gap: 48px;
-  padding: 20px 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 24px;
+  text-align: center;
+  background: var(--band);
+  color: #fff;
+  border-radius: var(--radius-shell) var(--radius-shell) 0 0;
 }
 
 .stat {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 4px;
+  padding: 12px 0;
+}
+
+.stat + .stat {
+  border-left: 1px solid var(--band-sep);
 }
 
 .stat-value {
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-weight: 600;
-  font-size: 1.25rem;
-  color: var(--ink);
+  font-size: 1.3rem;
+  color: #fff;
+  display: inline-block;
+}
+
+.stat-value.is-reset {
+  color: var(--band-reset);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .stat-value.bump {
+    animation: stat-bump 0.18s ease-out;
+  }
+}
+
+@keyframes stat-bump {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .stat-label {
-  font-family: var(--sans);
-  font-size: 0.68rem;
-  color: var(--ink-dim);
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--header-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
-/* quiz card */
+/* quiz shell + panel */
 
-.quiz-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: 48px 40px;
-  text-align: center;
+.quiz-shell {
+  background: var(--row-stripe);
+  padding: 16px;
+  border-radius: 0 0 var(--radius-shell) var(--radius-shell);
   margin-bottom: 48px;
 }
 
-.level-label {
+.quiz-panel {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  padding: 24px 20px 28px;
+  text-align: center;
+}
+
+.q-pills {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.pill {
+  display: inline-block;
   font-family: var(--sans);
-  font-size: 0.65rem;
-  font-weight: 500;
-  color: var(--ink-dim);
+  font-size: 0.6rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  margin: 0 0 12px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+}
+
+.pill-level {
+  background: var(--level, var(--arabic));
+  color: #fff;
+}
+
+.pill-pronoun {
+  background: var(--level-tint, var(--row-stripe));
+  color: var(--level-dim, var(--ink-dim));
+}
+
+.pill-pronoun[hidden] {
+  display: none;
+}
+
+.prompt-plate {
+  background: var(--level-tint, var(--row-stripe));
+  border-radius: var(--radius-plate);
+  padding: 18px 16px;
+  margin-bottom: 20px;
 }
 
 .gloss {
   font-family: var(--sans);
+  font-style: italic;
   font-size: 0.75rem;
-  color: var(--ink-dim);
+  color: var(--level-dim, var(--ink-dim));
   letter-spacing: 0.04em;
-  margin: 0 0 12px;
+  margin: 0 0 6px;
 }
 
 .prompt {
   font-family: var(--serif);
   font-weight: 600;
-  font-size: 2.75rem;
+  font-size: 2.1rem;
+  line-height: 1.15;
   color: var(--ink);
-  margin: 0 0 32px;
+  margin: 0;
 }
 
 #answer-form {
@@ -277,10 +465,11 @@ body {
 
 #answer-input {
   font-family: var(--mono);
-  font-style: italic;
+  font-style: normal;
   font-size: 0.9rem;
   background: var(--bg);
   border: 1px solid var(--border);
+  border-radius: var(--radius-plate);
   color: var(--arabic);
   padding: 12px 14px;
   width: 260px;
@@ -288,7 +477,7 @@ body {
 }
 
 #answer-input:focus {
-  border-color: var(--arabic);
+  border-color: var(--level, var(--arabic));
 }
 
 #answer-input:disabled {
@@ -300,14 +489,15 @@ body {
   font-size: 0.85rem;
   background: none;
   border: 1px solid var(--ink-dim);
+  border-radius: var(--radius-plate);
   color: var(--ink);
   padding: 12px 20px;
   cursor: pointer;
 }
 
 #answer-form button:hover {
-  border-color: var(--arabic);
-  color: var(--arabic);
+  border-color: var(--level, var(--arabic));
+  color: var(--level, var(--arabic));
 }
 
 .progress-counter {
@@ -335,11 +525,31 @@ body {
   display: inline-block;
   padding: 8px 16px;
   margin-top: 8px;
+  border-radius: var(--radius-pill);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .feedback.correct,
+  .feedback.incorrect {
+    animation: feedback-in 0.16s ease-out;
+  }
+}
+
+@keyframes feedback-in {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .feedback.correct {
-  color: var(--correct);
-  background: var(--correct-bg);
+  color: #fff;
+  background: var(--correct);
+  font-family: var(--serif);
 }
 
 .feedback.incorrect {
@@ -377,7 +587,7 @@ body {
   opacity: 0.65;
 }
 
-/* result view */
+/* result view -- plain (fail / retry) */
 
 .result-view {
   padding: 12px 0;
@@ -406,19 +616,118 @@ body {
   color: var(--incorrect);
 }
 
-.result-action {
+.result-action,
+.milestone-action {
   font-family: var(--sans);
   font-size: 0.85rem;
   background: none;
   border: 1px solid var(--ink-dim);
+  border-radius: var(--radius-plate);
   color: var(--ink);
   padding: 12px 24px;
   cursor: pointer;
 }
 
 .result-action:hover {
-  border-color: var(--arabic);
-  color: var(--arabic);
+  border-color: var(--level, var(--arabic));
+  color: var(--level, var(--arabic));
+}
+
+/* milestone -- level-pass takeover */
+
+.milestone {
+  background: var(--level, var(--header-bg));
+  border-radius: var(--radius-shell);
+  padding: 6px;
+}
+
+.milestone[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .milestone {
+    animation: milestone-in 0.24s ease-out;
+  }
+}
+
+@keyframes milestone-in {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.milestone-frame {
+  border: 1px solid var(--milestone-frame);
+  border-radius: 12px;
+  padding: 40px 24px 44px;
+  text-align: center;
+}
+
+.milestone-kicker {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--level-kicker, var(--header-text-dim));
+  margin: 0 0 18px;
+}
+
+.milestone-score {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 4.6rem;
+  line-height: 1;
+  color: #fff;
+  margin: 0 0 10px;
+}
+
+.milestone-score span {
+  font-size: 2.2rem;
+  color: var(--level-pale, var(--header-text-dim));
+}
+
+.milestone-sub {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--level-pale, var(--header-text-dim));
+  margin: 0 0 22px;
+}
+
+.milestone-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 22px;
+}
+
+.milestone-dots span {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-pill);
+}
+
+.milestone-line {
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color: #fff;
+  margin: 0 0 28px;
+}
+
+.milestone-action {
+  background: #fff;
+  border-color: #fff;
+  color: var(--level, var(--ink));
+}
+
+.milestone-action:hover {
+  opacity: 0.9;
 }
 
 /* word list modal */
@@ -441,6 +750,8 @@ body {
 .modal {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  overflow: hidden;
   width: 100%;
   max-width: 480px;
   max-height: 80vh;
@@ -470,6 +781,7 @@ body {
   font-size: 0.72rem;
   background: none;
   border: 1px solid var(--header-text-dim);
+  border-radius: var(--radius-plate);
   color: var(--header-text);
   padding: 5px 12px;
   cursor: pointer;
@@ -547,6 +859,7 @@ body {
   font-size: 0.8rem;
   background: var(--surface);
   border: 1px solid var(--border);
+  border-radius: var(--radius-plate);
   color: var(--arabic);
   padding: 12px;
   resize: vertical;
@@ -563,6 +876,7 @@ body {
   font-size: 0.75rem;
   padding: 8px 16px;
   border: 1px solid var(--ink-dim);
+  border-radius: var(--radius-plate);
   background: none;
   color: var(--ink);
   cursor: pointer;
@@ -578,17 +892,28 @@ body {
   color: var(--ink-dim);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 @media (max-width: 480px) {
-  .level-card {
-    padding: 20px 20px;
+  .level-card-body {
+    padding: 12px 14px;
   }
 
-  .quiz-card {
-    padding: 48px 24px;
+  .quiz-panel {
+    padding: 24px 16px 28px;
   }
 
   .prompt {
-    font-size: 2.1rem;
+    font-size: 1.85rem;
+  }
+
+  .milestone-score {
+    font-size: 3.6rem;
   }
 
   #answer-form {

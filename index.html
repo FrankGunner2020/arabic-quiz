@@ -12,6 +12,8 @@
   <header class="header">
     <h1 class="wordmark">Arabic Quiz</h1>
     <p class="subtitle">Lëtzebuergesch → Arabic, one verb at a time</p>
+    <p class="practice-line">Day <span id="practice-day">1</span>
+      <span class="practice-detail">· <span id="practice-count">0</span> answered today</span></p>
     <div class="header-actions">
       <button class="home-btn" id="home-btn" type="button" hidden>Home</button>
       <button class="word-list-btn" id="word-list-btn" type="button">Word list</button>
@@ -20,39 +22,48 @@
 
   <div id="home-view">
     <button class="level-card" type="button" id="level-card-1" data-level="1">
-      <span class="level-card-top">
-        <span class="level-card-title">Level 1 — Infinitives</span>
-        <span class="level-card-lock" id="level-card-lock-1" hidden>🔒</span>
+      <span class="level-card-spine" aria-hidden="true"></span>
+      <span class="level-card-body">
+        <span class="level-card-top">
+          <span class="level-card-title">Level 1 — Infinitives</span>
+          <span class="level-card-fraction" id="level-card-fraction-1"></span>
+        </span>
+        <span class="level-card-status" id="level-card-status-1"></span>
+        <span class="level-progress-track" id="level-progress-track-1">
+          <span class="level-progress-fill" id="level-progress-fill-1"></span>
+        </span>
+        <span class="level-card-note" id="level-card-note-1" hidden></span>
       </span>
-      <span class="level-card-status" id="level-card-status-1"></span>
-      <span class="level-progress-track" id="level-progress-track-1">
-        <span class="level-progress-fill" id="level-progress-fill-1"></span>
-      </span>
-      <span class="level-card-note" id="level-card-note-1" hidden></span>
     </button>
 
     <button class="level-card" type="button" id="level-card-2" data-level="2">
-      <span class="level-card-top">
-        <span class="level-card-title">Level 2 — Ana, Anta, Huwa, Hiya</span>
-        <span class="level-card-lock" id="level-card-lock-2" hidden>🔒</span>
+      <span class="level-card-spine" aria-hidden="true"></span>
+      <span class="level-card-body">
+        <span class="level-card-top">
+          <span class="level-card-title">Level 2 — Ana, Anta, Huwa, Hiya</span>
+          <span class="level-card-fraction" id="level-card-fraction-2"></span>
+        </span>
+        <span class="level-card-status" id="level-card-status-2"></span>
+        <span class="level-progress-track" id="level-progress-track-2">
+          <span class="level-progress-fill" id="level-progress-fill-2"></span>
+        </span>
+        <span class="level-card-note" id="level-card-note-2" hidden></span>
       </span>
-      <span class="level-card-status" id="level-card-status-2"></span>
-      <span class="level-progress-track" id="level-progress-track-2">
-        <span class="level-progress-fill" id="level-progress-fill-2"></span>
-      </span>
-      <span class="level-card-note" id="level-card-note-2" hidden></span>
     </button>
 
     <button class="level-card" type="button" id="level-card-3" data-level="3">
-      <span class="level-card-top">
-        <span class="level-card-title">Level 3 — Nahnu, Antum, Hum</span>
-        <span class="level-card-lock" id="level-card-lock-3" hidden>🔒</span>
+      <span class="level-card-spine" aria-hidden="true"></span>
+      <span class="level-card-body">
+        <span class="level-card-top">
+          <span class="level-card-title">Level 3 — Nahnu, Antum, Hum</span>
+          <span class="level-card-fraction" id="level-card-fraction-3"></span>
+        </span>
+        <span class="level-card-status" id="level-card-status-3"></span>
+        <span class="level-progress-track" id="level-progress-track-3">
+          <span class="level-progress-fill" id="level-progress-fill-3"></span>
+        </span>
+        <span class="level-card-note" id="level-card-note-3" hidden></span>
       </span>
-      <span class="level-card-status" id="level-card-status-3"></span>
-      <span class="level-progress-track" id="level-progress-track-3">
-        <span class="level-progress-fill" id="level-progress-fill-3"></span>
-      </span>
-      <span class="level-card-note" id="level-card-note-3" hidden></span>
     </button>
   </div>
 
@@ -73,32 +84,52 @@
       </div>
     </section>
 
-    <main class="quiz-card" id="quiz-card">
-      <p class="level-label" id="level-label"></p>
+    <main class="quiz-shell" id="quiz-card">
+      <div class="quiz-panel">
+        <div class="q-pills">
+          <span class="pill pill-level" id="pill-level"></span>
+          <span class="pill pill-pronoun" id="pill-pronoun" hidden></span>
+        </div>
 
-      <div id="question-view">
-        <p class="gloss" id="gloss"></p>
-        <p class="prompt" id="prompt"></p>
-        <form id="answer-form" autocomplete="off">
-          <input
-            id="answer-input"
-            type="text"
-            inputmode="latin"
-            autocapitalize="off"
-            autocorrect="off"
-            spellcheck="false"
-            placeholder="arabic transliteration"
-          />
-          <button type="submit">Check</button>
-        </form>
-        <p class="progress-counter" id="progress-counter" hidden></p>
-        <p class="feedback" id="feedback"></p>
-      </div>
+        <div id="question-view">
+          <div class="prompt-plate">
+            <p class="gloss" id="gloss"></p>
+            <p class="prompt" id="prompt"></p>
+          </div>
+          <form id="answer-form" autocomplete="off">
+            <input
+              id="answer-input"
+              type="text"
+              inputmode="latin"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              placeholder="arabic transliteration"
+            />
+            <button type="submit">Check</button>
+          </form>
+          <p class="progress-counter" id="progress-counter" hidden></p>
+          <p class="feedback" id="feedback"></p>
+        </div>
 
-      <div class="result-view" id="result-view" hidden>
-        <p class="result-score" id="result-score"></p>
-        <p class="result-message" id="result-message"></p>
-        <button class="result-action" id="result-action" type="button"></button>
+        <div class="result-view" id="result-view" hidden>
+          <div class="result-plain" id="result-plain">
+            <p class="result-score" id="result-score"></p>
+            <p class="result-message" id="result-message"></p>
+            <button class="result-action" id="result-action" type="button"></button>
+          </div>
+
+          <div class="milestone" id="milestone-view" hidden>
+            <div class="milestone-frame">
+              <p class="milestone-kicker" id="milestone-kicker"></p>
+              <p class="milestone-score" id="milestone-score"></p>
+              <p class="milestone-sub" id="milestone-sub"></p>
+              <div class="milestone-dots" id="milestone-dots"></div>
+              <p class="milestone-line" id="milestone-line"></p>
+              <button class="milestone-action" id="milestone-action" type="button"></button>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
 
