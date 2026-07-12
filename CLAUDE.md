@@ -13,7 +13,7 @@
 - `style.css` — palette lives in :root vars (--header-bg #1b3a6b, --border #9fb9dd, --ink #16233d, --ink-dim #5b7299, --arabic #3d6cb9, --correct/--incorrect + *-bg pairs). Flat rectangles only — no border-radius, no box-shadow anywhere. Always reference the vars, never hardcode hex. Font is Source Serif 4, only weights 400/600 loaded — never set font-weight:700 on --serif text.
 - `data.js` — 13 verbs x 7 persons (ech/du/hien/hatt/mir/dir/si = ana/anta/huwa/hiya/nahnu/antum/hum). `buildItems()` flattens to `ITEMS[]` with stable ids (`${verbId}.inf` or `${verbId}.${person}`) and a `level` field (1=infinitive, 2=ana/anta/huwa/hiya, 3=nahnu/antum/hum).
 - `matching.js` — grading (normalizeAnswer, levenshtein, isAnswerCorrect, isCorrectForItem) PLUS a separate, display-only diff engine (normalizeWithTrace, levenshteinAlign, diffAnswer) for incorrect-answer character-diff feedback. The two halves are independent — the diff engine never influences grading, keep it that way.
-- `quiz.js` — state, view routing (home/quiz), fixed-test machinery (levels 1/2), continuous practice (level 3), home-screen cards, per-level stats, answer-diff rendering, persistence. Largest file — if it keeps growing, split by concern (test machinery / state / rendering) rather than letting one file keep absorbing everything.
+- `quiz.js` — state, view routing (home/quiz), fixed-test machinery (levels 1/2/3), home-screen cards, per-level stats, answer-diff rendering, persistence, plus an unused continuous-practice picker kept as fallback architecture. Largest file — if it keeps growing, split by concern (test machinery / state / rendering) rather than letting one file keep absorbing everything.
 - `scripts/self-test.js` — run via `node scripts/self-test.js`. Asserts every item's answer grades against itself, apostrophe-variant handling, and "right pronoun + wrong verb must be rejected." Run after any data.js/matching.js edit. Must stay 100%.
 - `scripts/audit-hiya.js` — run via `node scripts/audit-hiya.js`. Verifies every hiya item's arVerb equals anta's and differs from huwa's, against a hardcoded reference table. Run after any data.js edit touching hien/hatt/hiya forms.
 - `progress-log.json` — manually-committed record of verbs reaching full mastery, via the "New milestones" export panel. Not auto-written.
@@ -21,7 +21,7 @@
 ## Levels & test mechanics
 - Level 1: 13 infinitives. Fixed test, 13 questions shuffled once per attempt, no repeats. Pass = 12/13 (85%+).
 - Level 2: ana/anta/huwa/hiya, 52 items. Fixed test, same pattern. Pass = 45/52 (85%+).
-- Level 3: nahnu/antum/hum, 39 items. Continuous weighted-repetition practice, no fixed test, no TEST_CONFIG entry, not linked from the home screen yet ("Coming soon"). Ask the user for fixed-vs-continuous preference before ever building a real Level 3 flow.
+- Level 3: nahnu/antum/hum, 39 items. Fixed test, same pattern as Levels 1/2. Pass = 34/39 (85%+). It's the last level: passing doesn't unlock a next level (`TEST_CONFIG[3].nextLevel` is `null`), so the result-screen action and the home card land back on Home / show "Completed — X/Y" instead of advancing. The weighted-repetition continuous-practice picker (`pickWeightedItem`/`activePool` in quiz.js) still exists but is unreachable now that all three levels have a `TEST_CONFIG` entry — kept as fallback architecture for a hypothetical future continuous-practice level.
 - Shared fixed-test machinery lives in `TEST_CONFIG`, keyed by level — extend this rather than duplicating Level 1/2's logic for any future fixed-test level.
 - `state.unlockedLevel` (monotonic) gates navigation, decoupled from `state.level` (which can move backward when replaying an already-passed level from home) — replaying Level 1 never re-locks Level 2.
 - `state.lastTest[level] = {correctCount, total}` is a read-only snapshot for the home card's "Passed — X/Y" label — doesn't feed scoring/unlock logic.
@@ -51,5 +51,4 @@ Two real bugs found in this project, same root cause both times: **the first cha
 - Keep README.md in sync with behavior changes as they're made, not as a batch cleanup later — it's read as "how this app currently works," and a stale README is worse than no README.
 
 ## Open gaps
-- Level 3 has no fixed-test/unlock flow — functional as continuous practice in code, deliberately not linked from the home screen.
 - In-progress test state is lost when switching to a different level mid-test (see above) — accepted limitation, not a bug.

@@ -6,9 +6,9 @@
 
   const LEVEL1_ITEMS = ITEMS.filter((item) => item.level === 1);
   const LEVEL2_ITEMS = ITEMS.filter((item) => item.level === 2);
-  // Level 3 (nahnu/antum/hum) is reachable once Level 2 is passed, but stays
-  // continuous weighted-repetition practice (no fixed test) -- see
-  // TEST_CONFIG below, which only has entries for levels 1 and 2.
+  // Level 3 (nahnu/antum/hum) is reachable once Level 2 is passed and, like
+  // Levels 1/2, is a fixed-length pass/fail test -- see TEST_CONFIG below.
+  // It's the last level: passing it doesn't unlock anything further.
   const LEVEL3_ITEMS = ITEMS.filter((item) => item.level === 3);
 
   const LEVEL_POOLS = { 1: LEVEL1_ITEMS, 2: LEVEL2_ITEMS, 3: LEVEL3_ITEMS };
@@ -20,8 +20,10 @@
 
   const ITEMS_BY_ID = new Map(ITEMS.map((item) => [item.id, item]));
 
-  // Levels with a fixed-length pass/fail test, keyed by level number.
-  // Levels not listed here (currently level 3) are continuous practice.
+  // Levels with a fixed-length pass/fail test, keyed by level number. All
+  // three levels currently use this. A future level could still fall back
+  // to continuous practice (see the weighted item picker further below) by
+  // simply not getting an entry here.
   const TEST_CONFIG = {
     1: {
       pool: LEVEL1_ITEMS,
@@ -42,6 +44,19 @@
       nextLevel: 3,
       unlockMessage: "Level 3 unlocked!",
       actionLabel: "Start Level 3 →",
+    },
+    3: {
+      pool: LEVEL3_ITEMS,
+      total: LEVEL3_ITEMS.length, // 39
+      // 33/39 is ~84.6% (just under 85%); 34/39 is ~87.2%, the smallest
+      // count that clears 85%.
+      passThreshold: 34,
+      // Last level -- passing doesn't unlock a next level, so there's no
+      // nextLevel to advance to. Handled explicitly wherever nextLevel is
+      // consumed (levelCardState, the resultAction click handler).
+      nextLevel: null,
+      unlockMessage: "Level 3 complete!",
+      actionLabel: "Back to home",
     },
   };
 
@@ -71,7 +86,7 @@
       // (score/total), taken right before the live test object is cleared
       // on advancing. Purely for the home screen's "Passed — X/Y" display;
       // doesn't feed back into scoring or unlock logic.
-      lastTest: { 1: null, 2: null },
+      lastTest: { 1: null, 2: null, 3: null },
       milestones: [], // verb ids that have reached full mastery (historical, never removed)
       pendingExport: [], // milestones not yet copied into progress-log.json
     };
@@ -193,7 +208,12 @@
     }
   }
 
-  // ---------- item selection (Level 2 / Level 3 continuous practice) ----------
+  // ---------- weighted item picker ----------
+  // Currently unused by renderQuestion -- all three levels have a
+  // TEST_CONFIG entry now, so the `else` branch below that calls
+  // pickWeightedItem never runs. Kept as shared fallback architecture for
+  // any future level that wants open-ended continuous practice instead of
+  // a fixed test. activePool() itself is still used by the word list.
 
   function activePool() {
     return LEVEL_POOLS[state.level] || LEVEL1_ITEMS;
@@ -407,15 +427,24 @@
     return state.unlockedLevel >= level;
   }
 
-  function passedResult(correctCount, total) {
+  // `label` override lets level 3 (the last level, nothing further to
+  // unlock) read "Completed" instead of "Passed" -- same variant/styling,
+  // different copy.
+  function passedResult(correctCount, total, label) {
     const pct = Math.round((correctCount / total) * 100);
     return {
       clickable: true,
       variant: "passed",
-      label: `Passed — ${correctCount}/${total}`,
+      label: label || `Passed — ${correctCount}/${total}`,
       percent: pct,
       note: null,
     };
+  }
+
+  function passedLabel(level, correctCount, total) {
+    return level === 3
+      ? `Completed — ${correctCount}/${total}`
+      : `Passed — ${correctCount}/${total}`;
   }
 
   // Computes what a home-screen level card should show. `variant` is for
@@ -425,25 +454,18 @@
     const cfg = TEST_CONFIG[level];
     const unlocked = levelUnlocked(level);
 
-    if (level === 3) {
-      return unlocked
-        ? { clickable: false, variant: "coming-soon", label: "Coming soon", percent: null, note: null }
-        : {
-            clickable: false,
-            variant: "locked",
-            label: "Locked",
-            percent: null,
-            note: "Pass Level 2 to unlock.",
-          };
-    }
-
     if (!unlocked) {
       return {
         clickable: false,
         variant: "locked",
         label: "Locked",
         percent: null,
-        note: level === 2 ? "Pass Level 1 to unlock." : null,
+        note:
+          level === 2
+            ? "Pass Level 1 to unlock."
+            : level === 3
+            ? "Pass Level 2 to unlock."
+            : null,
       };
     }
 
@@ -455,7 +477,9 @@
       const test = state.test;
       if (!test) {
         const last = state.lastTest[level];
-        return last ? passedResult(last.correctCount, last.total) : { clickable: true, variant: "not-started", label: "Not started", percent: 0, note: null };
+        return last
+          ? passedResult(last.correctCount, last.total, passedLabel(level, last.correctCount, last.total))
+          : { clickable: true, variant: "not-started", label: "Not started", percent: 0, note: null };
       }
       if (test.done) {
         const pct = Math.round((test.correctCount / cfg.total) * 100);
@@ -463,7 +487,7 @@
           clickable: true,
           variant: test.passed ? "passed" : "failed",
           label: test.passed
-            ? `Passed — ${test.correctCount}/${cfg.total}`
+            ? passedLabel(level, test.correctCount, cfg.total)
             : `Not quite — ${test.correctCount}/${cfg.total}`,
           percent: pct,
           note: null,
@@ -481,7 +505,7 @@
     }
 
     const last = state.lastTest[level];
-    if (last) return passedResult(last.correctCount, last.total);
+    if (last) return passedResult(last.correctCount, last.total, passedLabel(level, last.correctCount, last.total));
     if (state.unlockedLevel > level) {
       // Passed at some point but no snapshot on record (e.g. a save from
       // before this bookkeeping existed).
@@ -633,9 +657,16 @@
     const test = state.test;
     if (test.passed) {
       state.lastTest[state.level] = { correctCount: test.correctCount, total: cfg.total };
-      state.unlockedLevel = Math.max(state.unlockedLevel, cfg.nextLevel);
-      state.level = cfg.nextLevel;
       state.test = null;
+      if (cfg.nextLevel) {
+        state.unlockedLevel = Math.max(state.unlockedLevel, cfg.nextLevel);
+        state.level = cfg.nextLevel;
+      } else {
+        // Last level (currently level 3) -- nothing further to unlock.
+        // Land back on the home screen so the card shows its completed
+        // state instead of re-opening an already-passed test.
+        view = "home";
+      }
     } else {
       state.test = newTest(state.level);
     }

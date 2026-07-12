@@ -25,11 +25,11 @@ later level (unlocking only ever moves forward, tracked separately from
 header once you're inside a level, so you can back out to the overview
 mid-attempt without losing progress — in-progress test state is only ever
 discarded if you navigate into a *different* level while one is unfinished.
-Level 3's card shows "Coming soon" once unlocked rather than linking into
-its practice mode, since Level 3 doesn't have a defined completion/unlock
-flow of its own yet (see below).
+Level 3 is the last level: its card links into its fixed test just like
+Levels 1/2 once unlocked, but passing it shows a "Completed — X/Y" card
+instead of unlocking anything further.
 
-**Three levels, strictly separated, each with its own progression style.**
+**Three levels, strictly separated, each with the same fixed-test progression style.**
 
 1. *Level 1 — infinitives* — the 13 verb infinitives only, run as a fixed
    13-question test rather than open-ended practice. Each attempt shuffles
@@ -53,9 +53,13 @@ flow of its own yet (see below).
    pass/fail result screen) lives in one place in `quiz.js`, parameterized
    per level, rather than being duplicated between Level 1 and Level 2.
 3. *Level 3 — nahnu, antum, hum* — the remaining 39 conjugated forms,
-   reachable once Level 2 is passed. Unlike Levels 1 and 2, this is
-   continuous, open-ended practice: no fixed length, no pass/fail, just
-   weighted repetition (see below) for as long as you want to keep going.
+   reachable once Level 2 is passed. Same fixed-test pattern as Levels 1/2:
+   one shuffled pass through all 39 with no repeats, a counter ("1/39" ..
+   "39/39"), and a result screen. 34/39 (~87%) or better passes — 33/39
+   (~85%) lands just under the bar. Since it's the last level, passing
+   doesn't unlock anything further — the result screen and home card just
+   show a completed state, with a Retry button on a failed attempt exactly
+   like Levels 1/2.
 
 The current level is always shown as a label above the prompt. A "Word
 list" button in the header opens a reference panel listing every item in
@@ -70,19 +74,16 @@ characters long, a single-character typo (Levenshtein distance of 1) is
 still accepted. The goal is testing whether you know the word, not your
 typing precision.
 
-**Level 2's spaced repetition is weighted by streak, and never repeats a
-question back-to-back.** Each item (an infinitive or a conjugated form) has
-a running correct-streak. The next question is picked at random from the
-active pool, excluding whatever was just asked, weighted so that
-lower-streak items come up more often:
-
-```
-weight = max(0.3, 3 - streak)
-```
-
-Mastered items don't disappear — they just fade into the background. (Levels
-1 and 2's fixed tests don't use this picker at all — see above; only Level
-3 does.)
+**Per-item streaks feed milestones; the weighted-repetition picker itself is
+currently unused.** Each item (an infinitive or a conjugated form) tracks a
+running correct-streak regardless of which level it's answered in — that
+streak is what milestone mastery (see below) is based on. `quiz.js` also
+has a weighted-random item picker built for continuous, open-ended
+practice, excluding whatever was just asked and weighting so lower-streak
+items come up more often (`weight = max(0.3, 3 - streak)`), but since all
+three levels are now fixed shuffle-once-no-repeats tests, no level actually
+calls it — it's kept as ready-made fallback architecture for any future
+level that wants that style of practice instead.
 
 **Stats persist across sessions, scoped per level.** Per-item correct/
 incorrect counts and streaks are tracked globally (used for weighting and
