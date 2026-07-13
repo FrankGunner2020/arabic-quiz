@@ -11,8 +11,8 @@
 ## Files
 - `index.html` — header (practice line + Home/Word list buttons), #home-view (level cards), #quiz-view-root (stats band, quiz shell/panel, result view with plain-fail and milestone-pass sub-views, export panel), word-list modal.
 - `style.css` — palette + design-system tokens live in :root vars: base palette (--header-bg #1b3a6b, --border #9fb9dd, --ink #16233d, --ink-dim #5b7299, --arabic #3d6cb9, --correct/--incorrect + *-bg pairs), radii (--radius-shell/panel/plate/pill), per-level hue sets (--l1/--l2/--l3 + *-tint/*-border/*-dim/*-pale/*-kicker), milestone dot hues (--dot-*). Soft rounding + tonal layering throughout (no box-shadows anywhere — see "Visual design system" below). Always reference the vars, never hardcode hex. Font is Source Serif 4, only weights 400/600 loaded — never set font-weight:700 on --serif text.
-- `data.js` — 13 verbs x 7 persons (ech/du/hien/hatt/mir/dir/si = ana/anta/huwa/hiya/nahnu/antum/hum). `buildItems()` flattens to `ITEMS[]` with stable ids (`${verbId}.inf` or `${verbId}.${person}`) and a `level` field (1=infinitive, 2=ana/anta/huwa/hiya, 3=nahnu/antum/hum).
-- `matching.js` — grading (normalizeAnswer, levenshtein, isAnswerCorrect, isCorrectForItem) PLUS a separate, display-only diff engine (normalizeWithTrace, levenshteinAlign, diffAnswer) for incorrect-answer character-diff feedback. The two halves are independent — the diff engine never influences grading, keep it that way.
+- `data.js` — 13 verbs x 7 persons (ech/du/hien/hatt/mir/dir/si = ana/anta/huwa/hiya/nahnu/antum/hum). `buildItems()` flattens to `ITEMS[]` with stable ids (`${verbId}.inf` or `${verbId}.${person}`), a `level` field (1=infinitive, 2=ana/anta/huwa/hiya, 3=nahnu/antum/hum), and each item's precomputed `acceptedAnswers`/`acceptedAltAnswers` (depends on matching.js's `generateAcceptedAnswers` — see "Grading rules" for the load-order/require wiring this needs).
+- `matching.js` — grading (normalizeAnswer, generateAcceptedAnswers, isAnswerCorrect, isCorrectForItem) — exact-match only, no fuzzy tolerance, see "Grading rules" below — PLUS a separate, display-only diff engine (normalizeWithTrace, levenshteinAlign, diffAnswer) for incorrect-answer character-diff feedback. The two halves are independent — the diff engine never influences grading, keep it that way. `data.js` requires `generateAcceptedAnswers` from here to precompute each item's accepted-answer list; see script load order note under "Grading rules".
 - `quiz.js` — state, view routing (home/quiz), fixed-test machinery (levels 1/2/3), home-screen cards (incl. per-card fraction badge), level-hue pills + milestone takeover rendering, the Day-N/answered-today practice line, per-level stats, answer-diff rendering, persistence, plus an unused continuous-practice picker kept as fallback architecture. Largest file — if it keeps growing, split by concern (test machinery / state / rendering) rather than letting one file keep absorbing everything.
 - `scripts/self-test.js` — run via `node scripts/self-test.js`. Asserts every item's answer grades against itself, apostrophe-variant handling, and "right pronoun + wrong verb must be rejected." Run after any data.js/matching.js edit. Must stay 100%.
 - `scripts/audit-hiya.js` — run via `node scripts/audit-hiya.js`. Verifies every hiya item's arVerb equals anta's and differs from huwa's, against a hardcoded reference table. Run after any data.js edit touching hien/hatt/hiya forms.
@@ -88,15 +88,55 @@ anywhere — depth comes from tonal layering and the navy band, never shadows.
   `display` rule.
 
 ## Grading rules — hard-won, do not regress
-Two real bugs found in this project, same root cause both times: **the first character of the compared string matched, but the character that actually mattered (the verb's own leading letter) didn't, because something was in front of it.** Watch for a third variant of this same mistake before trusting any new compound-string comparison.
-- Normalize before comparing: lowercase, strip apostrophes/whitespace, fold oo<->u and aa<->a.
-- The first character of the (normalized) answer must match the first character of the (normalized) correct answer EXACTLY, independent of Levenshtein tolerance — this is the grammatical person-prefix (a-/t-/y-/n-), and confusing it is never a typo. Check this directly (compare index 0), never infer it from whether the Levenshtein edit happened to be a substitution — insertions/deletions can hide the same error.
-- Bug 1: huwa's "yakoon" was accepted as hiya's "takoon" — fixed by requiring `normInput[0] === normCorrect[0]` before typo tolerance applies, in `isAnswerCorrect`.
-- Bug 2: "anta amlik" was accepted for the anta prompt whose correct answer is "tamlik" — the altAnswer fallback (full "pronoun + verb" phrase) reused the same first-char lock, but with a pronoun prefixed on, position 0 was the pronoun, not the verb, so the lock never actually inspected the verb's own leading letter. Fixed by removing typo tolerance entirely from the altAnswer path — exact normalized match only there. altAnswer is a bonus acceptance path, not the primary graded target, so this trade is acceptable.
-- After the first-character check passes, Levenshtein distance <=1 is allowed as typo tolerance, only for answers 5+ normalized characters.
+Grading is exact-match-only against precomputed, per-item accepted-answer
+lists — there is no fuzzy/edit-distance tolerance anywhere in the grading
+path anymore. This replaced an earlier Levenshtein-1 typo-tolerance design
+after three real bugs, the first two sharing one root cause and the third
+being a different failure mode of fuzzy matching generally:
+- Bug 1 & 2 (old first-character-lock era): huwa's "yakoon" was accepted as
+  hiya's "takoon", and separately "anta amlik" was accepted for the anta
+  prompt whose correct answer is "tamlik" — both were "the first character
+  of the compared string matched, but the character that actually mattered
+  (the verb's own leading letter) didn't, because something was in front of
+  it" (a pronoun, in bug 2's case). Fixed at the time by requiring the first
+  character to match exactly before typo tolerance applied.
+- Bug 3: "yafam" was accepted for wëssen's infinitive ("ya'lam", to know) —
+  it's exactly one substitution away from normalized "yalam" and shares the
+  first character, so Levenshtein-1 tolerance waved it through, but "yafam"
+  isn't a typo of "yalam" at all: it's a fragment of a completely different
+  verb, "yafham" (to understand, verstoen). This is the general problem
+  with fuzzy edit-distance for this app: it can't distinguish "a real typo
+  of the right word" from "a coincidentally similar wrong word", and no
+  amount of additional lock-the-first-character-style patching closes that
+  off in general (bug 3 wasn't even a first-character case). Fixed by
+  replacing fuzzy tolerance entirely with explicit accepted-answer lists.
+- Current design: `data.js`'s `buildItems()` calls
+  `generateAcceptedAnswers()` (matching.js) on each item's own `answer` and
+  `altAnswer` to precompute `acceptedAnswers`/`acceptedAltAnswers` —  every
+  known-safe spelling variant (apostrophe optional, oo<->u, aa<->a; only
+  the combinations that actually apply to that specific word) enumerated as
+  explicit strings, generated only from that item's own answer. Grading
+  (`isCorrectForItem` in matching.js) normalizes the typed input (lowercase
+  + fold apostrophe-lookalike characters to one canonical character +
+  collapse whitespace — deterministic substitution, not fuzzy) and checks
+  for an exact match against the item's list. Since each item's list is
+  generated only from its own answer, one item's tolerance can never leak
+  into accepting a different item's spelling — this structurally prevents
+  the whole class of bugs 1-3, not just patches around each instance, so
+  `audit-hiya.js` is now a redundant safety net rather than the only guard.
+- Trade-off, not a bug: a genuine dropped-letter/extra-letter typo that
+  isn't one of the generated variants is now marked wrong, since there's no
+  fuzzy forgiveness left. That's the intentional trade — precision over
+  convenience.
+- `index.html` loads `matching.js` before `data.js` specifically so
+  `generateAcceptedAnswers` is available as a global when `buildItems()`
+  runs; under Node, `data.js` explicitly `require("./matching.js")`s it
+  onto `global` at the top of the file for the same reason (self-test.js
+  and audit-hiya.js both require data.js directly, and Node doesn't share
+  globals between required files the way browser `<script>` tags do).
 - anta and hiya are CORRECTLY identical in Arabic (both take the ta- prefix) — this is grammatically right, not a bug. Do not "fix" it.
 - Never repeat the same item as the immediately preceding question (lastItemId exclusion in the picker).
-- Character-diff feedback (shown on incorrect answers) diffs `item.answer` (the verb-only string actually graded, not the full pronoun+verb displayAnswer) against what was typed. Alignment runs on normalized strings so accepted spelling variants show as matches, not false mismatches, but renders against the correct answer's real spelling. The backtrace prefers a deletion framing over substitution when costs tie (reads more like "you dropped a letter"); genuine substitutions (no zero-sub path exists) still show as substitutions — that's correct, not a bug.
+- Character-diff feedback (shown on incorrect answers) diffs `item.answer` (the verb-only string actually graded, not the full pronoun+verb displayAnswer) against what was typed. Alignment runs on normalized strings (`normalizeWithTrace`, mirroring `normalizeAnswer`'s apostrophe-folding and whitespace-collapsing exactly — no oo/aa folding there either, keep the two in sync if `normalizeAnswer` ever changes) but renders against the correct answer's real spelling. The backtrace prefers a deletion framing over substitution when costs tie (reads more like "you dropped a letter"); genuine substitutions (no zero-sub path exists) still show as substitutions — that's correct, not a bug. This engine is display-only and independent of grading (see matching.js's own file-level comment) — it was NOT the source of the yafam bug and needed no correctness fix, just a mirroring update to stay consistent with the new, simpler `normalizeAnswer`.
 
 ## Workflow conventions
 - One commit per logical change; message explains *why*, not just *what*.

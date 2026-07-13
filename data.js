@@ -15,6 +15,17 @@
 // Every quizzable unit (an infinitive or a single conjugated form) gets a
 // flattened, stable item id of the shape `${verbId}.inf` or
 // `${verbId}.${person}` so stats can be tracked per item across sessions.
+//
+// buildItems() below calls generateAcceptedAnswers() (matching.js) to
+// precompute each item's accepted-spelling list. In the browser that
+// function is already a global by the time this file runs -- index.html
+// loads matching.js before data.js specifically for this reason. Under
+// Node (scripts/self-test.js, scripts/audit-hiya.js both require this file
+// directly) globals aren't shared between required files, so pull it in
+// explicitly here, the same way modules already export themselves below.
+if (typeof module !== "undefined" && module.exports) {
+  global.generateAcceptedAnswers = require("./matching.js").generateAcceptedAnswers;
+}
 
 const PERSONS = ["ech", "du", "hien", "hatt", "mir", "dir", "si"];
 
@@ -202,7 +213,11 @@ const VERBS = [
 // `altAnswer` is the full pronoun+verb phrase, accepted as an alternate for
 // anyone who types it out of habit. `displayAnswer` is always the full
 // phrase, shown in feedback for context even though only the verb was
-// required.
+// required. `acceptedAnswers`/`acceptedAltAnswers` are what grading
+// actually checks against (see matching.js's isCorrectForItem) -- each is
+// generateAcceptedAnswers() run on this item's own answer/altAnswer only,
+// so one item's accepted spellings can never include another item's, even
+// a coincidentally similar one.
 function buildItems() {
   const items = [];
   for (const verb of VERBS) {
@@ -215,9 +230,12 @@ function buildItems() {
       gloss: verb.infinitive.en,
       answer: verb.infinitive.ar,
       altAnswer: null,
+      acceptedAnswers: generateAcceptedAnswers(verb.infinitive.ar),
+      acceptedAltAnswers: null,
       displayAnswer: verb.infinitive.ar,
     });
     verb.forms.forEach((form, i) => {
+      const altAnswer = `${form.arPronoun} ${form.arVerb}`;
       items.push({
         id: `${verb.id}.${PERSONS[i]}`,
         verbId: verb.id,
@@ -226,8 +244,10 @@ function buildItems() {
         prompt: form.lb,
         gloss: verb.infinitive.en,
         answer: form.arVerb,
-        altAnswer: `${form.arPronoun} ${form.arVerb}`,
-        displayAnswer: `${form.arPronoun} ${form.arVerb}`,
+        altAnswer,
+        acceptedAnswers: generateAcceptedAnswers(form.arVerb),
+        acceptedAltAnswers: generateAcceptedAnswers(altAnswer),
+        displayAnswer: altAnswer,
       });
     });
   }

@@ -95,13 +95,20 @@ day or more resets it back to 1 (never 0, and never with any guilt copy or
 warning color), and "X answered today" resets silently at the first answer
 of a new day.
 
-**Answer matching is lenient, not strict.** Before comparing, both your input
-and the correct answer are lowercased, stripped of apostrophes and excess
-whitespace, and normalized so `oo`/`u` and `aa`/`a` are treated the same
-(spelling variants of the same sound). On top of that, for answers 5+
-characters long, a single-character typo (Levenshtein distance of 1) is
-still accepted. The goal is testing whether you know the word, not your
-typing precision.
+**Answer matching accepts known spelling variants, not typos.** Every item's
+correct answer has a small, precomputed list of accepted spellings — the
+apostrophe present or omitted, `oo`/`u`, and `aa`/`a`, in whatever
+combination actually applies to that specific word (a word with none of
+those produces one accepted spelling, a word with one produces two, a word
+with more produces the real combination — e.g. an apostrophe and `oo`
+together produce four). Your input is lowercased and trimmed, then checked
+for an exact match against that list. There's deliberately no fat-finger
+tolerance beyond that (no "off by one letter is close enough"): fuzzy
+matching used to allow that, but it couldn't tell a genuine typo of the
+right word apart from a coincidentally similar wrong one — typing "yafam"
+for wëssen's "ya'lam" (to know) was accepted even though "yafam" is
+actually a fragment of a different verb entirely (verstoen's "yafham", to
+understand). Precision over convenience.
 
 **Per-item streaks feed milestones; the weighted-repetition picker itself is
 currently unused.** Each item (an infinitive or a conjugated form) tracks a

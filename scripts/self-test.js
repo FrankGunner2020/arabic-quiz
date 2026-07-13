@@ -79,5 +79,59 @@ for (const verb of VERBS) {
   }
 }
 
+// Regression test for the "yafam" bug: fuzzy Levenshtein-1 typo tolerance
+// used to accept "yafam" for wëssen's infinitive (ya'lam, "to know") even
+// though "yafam" isn't a typo of it at all -- it's a fragment of a
+// completely different verb, yafham/verstoen ("to understand"), that just
+// happens to be one substitution away and shares a leading character.
+// Fuzzy edit-distance can't tell "a real typo of the right word" apart
+// from "a coincidentally similar wrong word"; explicit accepted-answer
+// lists (matching.js's generateAcceptedAnswers) can, since "yafam" is
+// simply never in wëssen's list. Guards against fuzzy tolerance creeping
+// back in.
+{
+  const item = ITEMS.find((it) => it.id === "wessen.inf");
+  const ok = item && !isCorrectForItem("yafam", item);
+  if (ok) {
+    pass++;
+  } else {
+    fail++;
+    console.log(
+      `FAIL: wessen.inf -> isCorrectForItem("yafam", item) should be false (coincidental near-miss of an unrelated verb, verstoen/yafham)`
+    );
+  }
+}
+
+// Broader regression, same root cause: a sample of items' canonical
+// answers must be rejected against several other, unrelated items -- not
+// just typo variants of the right one. Only cross-verb pairs are checked
+// (same-verb pairs can legitimately share a spelling by design, e.g. hiya
+// === anta for every verb here), so every rejection asserted below is a
+// genuine cross-verb collision that must never be accepted. This is
+// structurally guaranteed now that each item's accepted list is generated
+// only from that item's own answer -- this test is a redundant safety net
+// confirming that guarantee actually holds, not just trusting the theory.
+{
+  const SAMPLE_IDS = ["wessen.inf", "sinn.hien", "hunn.du", "verstoen.inf", "kucken.mir"];
+  const sampleItems = SAMPLE_IDS.map((id) => ITEMS.find((it) => it.id === id));
+  for (const sourceItem of sampleItems) {
+    if (!sourceItem) continue;
+    for (const otherItem of sampleItems) {
+      if (!otherItem || otherItem === sourceItem) continue;
+      if (sourceItem.verbId === otherItem.verbId) continue;
+
+      const ok = !isCorrectForItem(sourceItem.answer, otherItem);
+      if (ok) {
+        pass++;
+      } else {
+        fail++;
+        console.log(
+          `FAIL: ${otherItem.id} -> isCorrectForItem("${sourceItem.answer}", item) should be false (that's ${sourceItem.id}'s answer, an unrelated verb)`
+        );
+      }
+    }
+  }
+}
+
 console.log(`${pass}/${pass + fail} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

@@ -2,79 +2,81 @@
 // it can run identically in the browser and under plain Node for the
 // self-test in scripts/self-test.js.
 
+// Lowercase + fold apostrophe look-alikes to one canonical character +
+// collapse whitespace. This is intentionally NOT fuzzy -- every step is a
+// deterministic character substitution, not an edit-distance tolerance.
+// The apostrophe fold specifically exists because mobile keyboards render a
+// typed apostrophe as any of several Unicode lookalikes (straight, curly
+// open/close, modifier letter); without folding them to one character here,
+// typing a curly apostrophe would fail to exact-match a generated accepted
+// answer that (per generateAcceptedAnswers below) always uses the straight
+// one, since data.js's source strings only ever use "'". Do not add
+// anything here that forgives a genuinely different character (like the old
+// oo<->u/aa<->a folding did) -- those are now explicit accepted-answer
+// variants instead, generated per item, so one item's tolerance can never
+// leak into accepting a different, wrong verb (see generateAcceptedAnswers).
 function normalizeAnswer(str) {
   return str
     .toLowerCase()
-    .replace(/['’‘ʼ]/g, "")
+    .replace(/['’‘ʼ]/g, "'")
     .trim()
-    .replace(/\s+/g, " ")
-    .replace(/oo/g, "u")
-    .replace(/aa/g, "a");
+    .replace(/\s+/g, " ");
 }
 
-function levenshtein(a, b) {
-  const m = a.length;
-  const n = b.length;
-  const dp = new Array(n + 1);
-  for (let j = 0; j <= n; j++) dp[j] = j;
+// Only the transforms that actually apply to a given word are combined, so
+// a word with none of apostrophe/oo/aa produces exactly one variant
+// (itself); a word where exactly one transform applies produces two; a word
+// where multiple transforms apply produces the real combination of all of
+// them (e.g. an apostrophe AND "oo" together produce four).
+function applicableTransforms(str) {
+  const transforms = [];
+  if (str.includes("'")) transforms.push((s) => s.replace(/'/g, ""));
+  if (str.includes("oo")) transforms.push((s) => s.replace(/oo/g, "u"));
+  if (str.includes("aa")) transforms.push((s) => s.replace(/aa/g, "a"));
+  return transforms;
+}
 
-  for (let i = 1; i <= m; i++) {
-    let prev = dp[0];
-    dp[0] = i;
-    for (let j = 1; j <= n; j++) {
-      const temp = dp[j];
-      if (a[i - 1] === b[j - 1]) {
-        dp[j] = prev;
-      } else {
-        dp[j] = 1 + Math.min(prev, dp[j], dp[j - 1]);
-      }
-      prev = temp;
-    }
+// Precomputes every known-safe spelling variant of a canonical answer as
+// explicit, exact strings. This replaces the old Levenshtein-1 typo
+// tolerance: fuzzy edit-distance can't distinguish "a real typo of the
+// right word" from "a coincidentally similar wrong word" -- e.g. "yafam"
+// (a fragment of yafham/verstoen, "to understand") is exactly one
+// substitution away from ya'lam/wëssen's normalized "yalam" and was wrongly
+// accepted for it. Because each item's accepted list is generated only
+// from that item's own answer, this also structurally prevents any
+// cross-item bleed (the earlier huwa/hiya and ana/anta bugs) -- there is no
+// shared tolerance window for a different item's spelling to fall into.
+function generateAcceptedAnswers(canonical) {
+  const base = normalizeAnswer(canonical);
+  let variants = new Set([base]);
+  for (const transform of applicableTransforms(base)) {
+    const next = new Set(variants);
+    variants.forEach((v) => next.add(transform(v)));
+    variants = next;
   }
-  return dp[n];
+  return Array.from(variants);
 }
 
+// Exact match only, after normalization -- no typo tolerance. Kept as a
+// simple string-pair primitive (used directly by scripts/self-test.js's
+// identity check); item grading goes through isCorrectForItem below, which
+// checks the item's precomputed accepted-answer lists instead of a single
+// "correct" string.
 function isAnswerCorrect(input, correct) {
-  const normInput = normalizeAnswer(input);
-  const normCorrect = normalizeAnswer(correct);
-  if (normInput === normCorrect) return true;
-  // The typo-tolerance below is meant to forgive fat-fingering, not a wrong
-  // verb form entirely. Several verbs here differ only by their leading
-  // person-prefix (e.g. huwa's "yakoon" vs hiya's "takoon"), which is a
-  // single-character edit at position 0 -- exactly what Levenshtein-1 would
-  // otherwise forgive. Requiring the first character to match exactly closes
-  // that hole while still tolerating typos anywhere else in the word.
-  if (
-    normCorrect.length >= 5 &&
-    normInput.length > 0 &&
-    normInput[0] === normCorrect[0] &&
-    levenshtein(normInput, normCorrect) <= 1
-  ) {
-    return true;
-  }
-  return false;
+  return normalizeAnswer(input) === normalizeAnswer(correct);
 }
 
-// Grades against an item's primary answer (verb-only for conjugated forms),
-// falling back to the full pronoun+verb phrase if the item has one.
-//
-// The altAnswer fallback intentionally does NOT go through
-// isAnswerCorrect's Levenshtein typo tolerance -- only an exact
-// (post-normalization) match. Reusing the same tolerance here reopened
-// exactly the bug the first-character lock above was built to close: with
-// a pronoun prefixed onto the verb (e.g. "anta tamlik"), the *string's*
-// first character is the shared pronoun, so a wrong/missing verb-initial
-// letter (e.g. typing "anta amlik", dropping the leading t- of "tamlik")
-// still has normInput[0] === normCorrect[0] and can be a single-character
-// edit away -- the lock never actually inspects the verb's own leading
-// letter once something sits in front of it. The primary answer is
-// verb-only, so it isn't exposed to this; the altAnswer is a bonus
-// acceptance for people who type the full phrase out of habit, not the
-// main graded target, so losing typo tolerance there is an acceptable
-// trade for closing this off.
+// Grades against an item's precomputed acceptedAnswers (verb-only for
+// conjugated forms, since the Lëtzebuergesch prompt already establishes the
+// subject), falling back to acceptedAltAnswers (the full pronoun+verb
+// phrase) if the item has one. Both lists are generated by
+// generateAcceptedAnswers from that item's own answer/altAnswer only, so
+// there is no fuzzy tolerance anywhere in this path -- see data.js's
+// buildItems() for where the lists are built.
 function isCorrectForItem(input, item) {
-  if (isAnswerCorrect(input, item.answer)) return true;
-  if (item.altAnswer && normalizeAnswer(input) === normalizeAnswer(item.altAnswer)) return true;
+  const normInput = normalizeAnswer(input);
+  if (item.acceptedAnswers.includes(normInput)) return true;
+  if (item.acceptedAltAnswers && item.acceptedAltAnswers.includes(normInput)) return true;
   return false;
 }
 
@@ -96,24 +98,15 @@ function isCorrectForItem(input, item) {
 function normalizeWithTrace(str) {
   const lower = str.toLowerCase();
 
-  // Strip apostrophe variants, but keep a stripped apostrophe attached to
-  // the *next* surviving character's span (or the previous one, if it's
-  // the very last character) so the real spelling still comes through
-  // when a segment is rendered, even though the apostrophe itself carries
-  // no weight in the alignment.
+  // Fold apostrophe look-alikes to one canonical character for alignment
+  // purposes (mirrors normalizeAnswer) -- kept as its own span rather than
+  // stripped/merged, since normalizeAnswer no longer removes apostrophes,
+  // only canonicalizes which literal character represents one.
   const stage1 = [];
-  let pendingStart = null;
   for (let i = 0; i < lower.length; i++) {
     const ch = lower[i];
-    if (/['’‘ʼ]/.test(ch)) {
-      if (pendingStart === null) pendingStart = i;
-      continue;
-    }
-    stage1.push({ ch, start: pendingStart === null ? i : pendingStart, end: i + 1 });
-    pendingStart = null;
-  }
-  if (pendingStart !== null && stage1.length > 0) {
-    stage1[stage1.length - 1].end = lower.length;
+    const normCh = /['’‘ʼ]/.test(ch) ? "'" : ch;
+    stage1.push({ ch: normCh, start: i, end: i + 1 });
   }
 
   // Collapse whitespace runs to a single space, trim leading/trailing.
@@ -133,25 +126,13 @@ function normalizeWithTrace(str) {
   }
   while (stage2.length && stage2[stage2.length - 1].ch === " ") stage2.pop();
 
-  // Fold oo -> u and aa -> a (matches two sequential non-overlapping,
-  // non-recursive regex passes -- same-letter pairs only, so processing
-  // both fold types in one left-to-right scan can't diverge from doing
-  // them as separate passes).
-  const stage3 = [];
-  for (let i = 0; i < stage2.length; i++) {
-    const a = stage2[i];
-    const b = stage2[i + 1];
-    if (b && a.ch === b.ch && (a.ch === "o" || a.ch === "a")) {
-      stage3.push({ ch: a.ch === "o" ? "u" : "a", start: a.start, end: b.end });
-      i++;
-    } else {
-      stage3.push(a);
-    }
-  }
+  // No oo->u/aa->a folding here anymore -- normalizeAnswer no longer does
+  // it either (those are now explicit per-item accepted-answer variants,
+  // not a universal fold), so mirroring it stops at whitespace collapsing.
 
   return {
-    normalized: stage3.map((e) => e.ch).join(""),
-    spans: stage3.map((e) => [e.start, e.end]),
+    normalized: stage2.map((e) => e.ch).join(""),
+    spans: stage2.map((e) => [e.start, e.end]),
   };
 }
 
@@ -253,7 +234,7 @@ function diffAnswer(rawInput, correctAnswer) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     normalizeAnswer,
-    levenshtein,
+    generateAcceptedAnswers,
     isAnswerCorrect,
     isCorrectForItem,
     normalizeWithTrace,
