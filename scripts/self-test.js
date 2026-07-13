@@ -172,15 +172,17 @@ for (const verb of VERBS) {
 // clean match, not garbled/flagged as wrong just because the diff engine
 // compared their whole input against the verb-only canonical answer.
 // closestAcceptedAnswer must pick the full-phrase variant as the diff
-// target here, not the verb-only one, for that to happen.
+// target here (and not consider it a "different word" -- close enough for
+// a granular diff to be useful), for that to happen.
 {
   const item = ITEMS.find((it) => it.id === "gesinn.du");
   const rawInput = "anta xyz";
-  const target = closestAcceptedAnswer(rawInput, item);
-  const segments = diffAnswer(rawInput, target);
-  const pronounSegment = segments[0];
+  const { answer: target, isDifferentWord } = closestAcceptedAnswer(rawInput, item);
+  const { wordSegments } = diffAnswer(rawInput, target);
+  const pronounSegment = wordSegments[0];
 
   const ok =
+    !isDifferentWord &&
     pronounSegment &&
     pronounSegment.kind === "match" &&
     pronounSegment.text.trim() === "anta";
@@ -189,7 +191,59 @@ for (const verb of VERBS) {
   } else {
     fail++;
     console.log(
-      `FAIL: gesinn.du -> diffAnswer("${rawInput}", "${target}") should render "anta" as a matched segment, got ${JSON.stringify(segments)}`
+      `FAIL: gesinn.du -> diffAnswer("${rawInput}", "${target}") should render "anta" as a matched segment (isDifferentWord=${isDifferentWord}), got ${JSON.stringify(wordSegments)}`
+    );
+  }
+}
+
+// Regression test for the "tandhur~~a~~" bug: an "extra" segment must
+// never render directly appended after the correct answer's own spelling
+// -- diffAnswer must keep extraSegments (leftover typed characters not
+// part of the correct answer) fully separate from wordSegments (the
+// correct answer's own letters, which concatenated in order must always
+// render the intact, correctly-spelled word with no "extra" text mixed
+// in). "tandhura" (one genuine extra trailing character) against
+// "tandhur" is a small, close edit -- not a different word -- so this
+// should still produce a granular diff, just with the "a" kept out of
+// wordSegments.
+{
+  const rawInput = "tandhura";
+  const correctAnswer = "tandhur";
+  const { wordSegments, extraSegments } = diffAnswer(rawInput, correctAnswer);
+
+  const wordText = wordSegments.map((seg) => seg.text).join("");
+  const wordHasNoExtraKind = wordSegments.every((seg) => seg.kind !== "extra");
+  const extraText = extraSegments.map((seg) => seg.text).join("");
+
+  const ok = wordText === correctAnswer && wordHasNoExtraKind && extraText === "a";
+  if (ok) {
+    pass++;
+  } else {
+    fail++;
+    console.log(
+      `FAIL: diffAnswer("${rawInput}", "${correctAnswer}") -> wordSegments should spell exactly "${correctAnswer}" with no "extra" kind mixed in and extraSegments should be "a", got wordSegments=${JSON.stringify(wordSegments)} extraSegments=${JSON.stringify(extraSegments)}`
+    );
+  }
+}
+
+// Regression test for the "different word" threshold: typing "tara"
+// (gesinn's ana/anta-ish fragment) against kucken.du's "tandhur" is 5 of 7
+// characters off -- a different word, not a typo -- and closestAcceptedAnswer
+// must flag it as such (isDifferentWord: true) rather than force a
+// character-by-character alignment between two unrelated words. A close
+// typo (one missing letter) against the same word must NOT be flagged.
+{
+  const item = ITEMS.find((it) => it.id === "kucken.du");
+  const differentWord = closestAcceptedAnswer("tara", item);
+  const nearTypo = closestAcceptedAnswer("tandur", item); // missing the "h"
+
+  const ok = item && item.answer === "tandhur" && differentWord.isDifferentWord && !nearTypo.isDifferentWord;
+  if (ok) {
+    pass++;
+  } else {
+    fail++;
+    console.log(
+      `FAIL: kucken.du (answer should be "tandhur") -> closestAcceptedAnswer("tara", item).isDifferentWord should be true (got ${JSON.stringify(differentWord)}), closestAcceptedAnswer("tandur", item).isDifferentWord should be false (got ${JSON.stringify(nearTypo)})`
     );
   }
 }

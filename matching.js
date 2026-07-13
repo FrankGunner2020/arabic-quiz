@@ -187,6 +187,16 @@ function levenshteinAlign(a, b) {
   return ops;
 }
 
+// How much of the closest accepted variant's length the edit distance has
+// to be before a character-by-character diff stops being useful feedback.
+// Above this ratio, the typed answer isn't a near-miss typo of the right
+// word anymore -- it's effectively a different word (e.g. typing "tara"
+// for "tandhur" is 5 of 7 characters off) -- and forcing a Levenshtein
+// alignment between two mostly-unrelated strings produces an awkward,
+// confusing diff rather than useful feedback. Deliberately simple: exactly
+// half, not tuned per-word or per-level.
+const DIFFERENT_WORD_RATIO = 0.5;
+
 // Chooses which of an item's accepted-answer variants -- verb-only
 // (acceptedAnswers) AND full-phrase (acceptedAltAnswers, if the item has
 // one), including their own spelling variants -- is closest (lowest edit
@@ -200,9 +210,15 @@ function levenshteinAlign(a, b) {
 // match. Picking "anta tara" as the target instead lets the pronoun align
 // as a match and only the verb show as the real mistake.
 //
+// Returns { answer, isDifferentWord }: `answer` is the chosen candidate
+// string (already normalized, e.g. no apostrophe if that variant was
+// closest); `isDifferentWord` tells the caller whether even the best
+// candidate is a poor enough match that a granular diff isn't worthwhile
+// (see DIFFERENT_WORD_RATIO above).
+//
 // Display-only, like the rest of this section: grading (isCorrectForItem)
 // has already decided the answer is wrong by the time this runs, and
-// which variant looks "closest" here never feeds back into that decision.
+// nothing computed here feeds back into that decision.
 function closestAcceptedAnswer(rawInput, item) {
   const candidates = item.acceptedAltAnswers
     ? item.acceptedAnswers.concat(item.acceptedAltAnswers)
@@ -222,7 +238,10 @@ function closestAcceptedAnswer(rawInput, item) {
       best = candidate;
     }
   }
-  return best;
+  return {
+    answer: best,
+    isDifferentWord: bestDistance > best.length * DIFFERENT_WORD_RATIO,
+  };
 }
 
 // Computes a display-ready diff between what the user typed (`rawInput`)
@@ -231,11 +250,24 @@ function closestAcceptedAnswer(rawInput, item) {
 // (so tolerated spelling variants show as matches, not false mismatches);
 // rendering uses each side's real, un-normalized spelling.
 //
-// Returns an array of { text, kind } segments in reading order, kind one
-// of: "match" (correct as typed), "sub" (wrong letter where a right one
-// was expected -- shown as the correct letter), "missing" (a correct
-// letter the user never typed), "extra" (a letter the user typed that
-// isn't in the correct answer at all -- shown as what was actually typed).
+// Returns { wordSegments, extraSegments }, each an array of { text, kind }
+// in reading order:
+//   - wordSegments are "match" (correct as typed), "sub" (wrong letter
+//     where a right one was expected -- shown as the correct letter), or
+//     "missing" (a correct letter the user never typed). Concatenating
+//     wordSegments' text in order always renders the correct answer's own
+//     spelling, intact -- these are the only segments a caller should
+//     render as part of "the correct answer".
+//   - extraSegments are "extra": a letter the user typed that isn't in the
+//     correct answer at all, shown as what was actually typed. These are
+//     kept OUT of wordSegments and returned separately on purpose --
+//     rendering an "extra" segment directly after correct-answer text
+//     (e.g. "tandhur" immediately followed by a struck-through "a") reads
+//     as if the correct answer itself contains the struck-through mistake,
+//     which is exactly the confusing case this split exists to prevent.
+//     Callers should render wordSegments as one clean, uninterrupted word
+//     and, if extraSegments is non-empty, show it as a clearly separate
+//     annotation instead of splicing it into the word.
 function diffAnswer(rawInput, correctAnswer) {
   const inputTraced = normalizeWithTrace(rawInput);
   const correctTraced = normalizeWithTrace(correctAnswer);
@@ -266,7 +298,11 @@ function diffAnswer(rawInput, correctAnswer) {
       merged.push({ text: seg.text, kind: seg.kind });
     }
   }
-  return merged;
+
+  return {
+    wordSegments: merged.filter((seg) => seg.kind !== "extra"),
+    extraSegments: merged.filter((seg) => seg.kind === "extra"),
+  };
 }
 
 if (typeof module !== "undefined" && module.exports) {

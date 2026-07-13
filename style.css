@@ -587,6 +587,22 @@ body {
   opacity: 0.65;
 }
 
+/* Deliberately NOT mono/italic like .answer-diff -- this is a separate
+   annotation about leftover typed characters, not a continuation of the
+   correct answer's own spelling, and should read visually distinct from it
+   rather than looking spliced onto the end of the word. */
+.answer-diff-extra-note {
+  font-family: var(--sans);
+  font-style: normal;
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+}
+
+.answer-diff-extra-note .diff-extra {
+  font-family: var(--mono);
+  font-style: italic;
+}
+
 /* result view -- plain (fail / retry) */
 
 .result-view {

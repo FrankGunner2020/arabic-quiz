@@ -537,21 +537,62 @@
   // answer -- otherwise a legitimate full-phrase attempt with a wrong verb
   // would show its correct pronoun as garbled/wrong, since it isn't part
   // of the verb-only string.
+  //
+  // Two cases get special handling instead of a plain character-by-character
+  // overlay:
+  //   - If even the closest accepted variant is a poor match (isDifferentWord
+  //     -- see matching.js's DIFFERENT_WORD_RATIO), the typed answer is
+  //     effectively a different word, not a typo of the right one. A forced
+  //     alignment between two mostly-unrelated strings is confusing, not
+  //     helpful, so just show the correct answer plainly instead.
+  //   - Otherwise, diffAnswer's wordSegments (match/sub/missing -- always the
+  //     correct answer's own, intact spelling) are rendered as one
+  //     uninterrupted word, and any extraSegments (leftover typed characters
+  //     that don't map onto the correct answer at all) are shown as a
+  //     clearly separate annotation afterward, never spliced directly onto
+  //     the word -- that used to make the correct spelling itself look like
+  //     it contained a struck-through mistake (e.g. "tandhur" immediately
+  //     followed by a struck-through extra "a" read as "tandhura" with the
+  //     trailing letter flagged as wrong, as if the correct answer were
+  //     "tandhura").
   function renderAnswerDiff(rawInput, item) {
     els.feedback.textContent = "";
 
     els.feedback.appendChild(document.createTextNode("Not quite — "));
 
-    const diffTarget = closestAcceptedAnswer(rawInput, item);
+    const { answer: diffTarget, isDifferentWord } = closestAcceptedAnswer(rawInput, item);
+
+    if (isDifferentWord) {
+      const plain = document.createElement("span");
+      plain.className = "answer-diff";
+      plain.textContent = item.answer;
+      els.feedback.appendChild(plain);
+      return;
+    }
+
+    const { wordSegments, extraSegments } = diffAnswer(rawInput, diffTarget);
+
     const diffEl = document.createElement("span");
     diffEl.className = "answer-diff";
-    diffAnswer(rawInput, diffTarget).forEach((seg) => {
+    wordSegments.forEach((seg) => {
       const span = document.createElement("span");
       span.className = "diff-" + seg.kind;
       span.textContent = seg.text;
       diffEl.appendChild(span);
     });
     els.feedback.appendChild(diffEl);
+
+    if (extraSegments.length) {
+      const note = document.createElement("span");
+      note.className = "answer-diff-extra-note";
+      note.appendChild(document.createTextNode(" (also typed "));
+      const extraSpan = document.createElement("span");
+      extraSpan.className = "diff-extra";
+      extraSpan.textContent = extraSegments.map((seg) => seg.text).join("");
+      note.appendChild(extraSpan);
+      note.appendChild(document.createTextNode(")"));
+      els.feedback.appendChild(note);
+    }
   }
 
   function renderExportSection() {
