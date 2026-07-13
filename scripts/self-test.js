@@ -12,7 +12,7 @@
 // Run with: node scripts/self-test.js
 
 const { ITEMS, VERBS, PERSONS } = require("../data.js");
-const { isAnswerCorrect, isCorrectForItem } = require("../matching.js");
+const { isAnswerCorrect, isCorrectForItem, diffAnswer, closestAcceptedAnswer } = require("../matching.js");
 
 let pass = 0;
 let fail = 0;
@@ -130,6 +130,67 @@ for (const verb of VERBS) {
         );
       }
     }
+  }
+}
+
+// Regression test: both the verb-only answer AND, for items that have one,
+// the full pronoun+verb phrase must be accepted -- across a sample of
+// items spanning all three levels, not just gesinn.du (the item that
+// surfaced this specific regression: "anta tara" was being rejected
+// because the explicit-accepted-answers refactor only generated variants
+// from the verb-only canonical answer for a beat, dropping the earlier
+// "also accept the full phrase" path). Level 1 items have no pronoun/
+// altAnswer at all, so only the verb-only check applies to those.
+{
+  const SAMPLE_IDS = ["sinn.inf", "verstoen.inf", "gesinn.du", "hunn.hien", "wessen.mir", "kucken.si"];
+  for (const id of SAMPLE_IDS) {
+    const item = ITEMS.find((it) => it.id === id);
+    if (!item) continue;
+
+    const verbOnlyOk = isCorrectForItem(item.answer, item);
+    if (verbOnlyOk) {
+      pass++;
+    } else {
+      fail++;
+      console.log(`FAIL: ${id} -> isCorrectForItem("${item.answer}", item) should be true (verb-only answer)`);
+    }
+
+    if (!item.altAnswer) continue; // level 1: no pronoun, nothing further to check
+    const fullPhraseOk = isCorrectForItem(item.altAnswer, item);
+    if (fullPhraseOk) {
+      pass++;
+    } else {
+      fail++;
+      console.log(`FAIL: ${id} -> isCorrectForItem("${item.altAnswer}", item) should be true (full pronoun+verb phrase)`);
+    }
+  }
+}
+
+// Diff-specific regression: someone who types the full phrase with the
+// right pronoun but a wrong verb (e.g. "anta xyz" for gesinn.du, answer
+// "tara", altAnswer "anta tara") must see their pronoun rendered as a
+// clean match, not garbled/flagged as wrong just because the diff engine
+// compared their whole input against the verb-only canonical answer.
+// closestAcceptedAnswer must pick the full-phrase variant as the diff
+// target here, not the verb-only one, for that to happen.
+{
+  const item = ITEMS.find((it) => it.id === "gesinn.du");
+  const rawInput = "anta xyz";
+  const target = closestAcceptedAnswer(rawInput, item);
+  const segments = diffAnswer(rawInput, target);
+  const pronounSegment = segments[0];
+
+  const ok =
+    pronounSegment &&
+    pronounSegment.kind === "match" &&
+    pronounSegment.text.trim() === "anta";
+  if (ok) {
+    pass++;
+  } else {
+    fail++;
+    console.log(
+      `FAIL: gesinn.du -> diffAnswer("${rawInput}", "${target}") should render "anta" as a matched segment, got ${JSON.stringify(segments)}`
+    );
   }
 }
 

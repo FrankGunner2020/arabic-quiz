@@ -187,6 +187,44 @@ function levenshteinAlign(a, b) {
   return ops;
 }
 
+// Chooses which of an item's accepted-answer variants -- verb-only
+// (acceptedAnswers) AND full-phrase (acceptedAltAnswers, if the item has
+// one), including their own spelling variants -- is closest (lowest edit
+// distance) to what the user actually typed, so the diff below renders
+// against whichever form they were actually attempting. Without this, the
+// diff always compared against the verb-only canonical answer even when
+// someone legitimately typed the full pronoun+verb phrase, so a correct
+// pronoun with a wrong verb (e.g. "anta xyz" for gesinn.du, answer "tara",
+// altAnswer "anta tara") would show the pronoun itself as garbled/wrong --
+// aligning "anta xyz" against "tara" has no room for "anta" to be a clean
+// match. Picking "anta tara" as the target instead lets the pronoun align
+// as a match and only the verb show as the real mistake.
+//
+// Display-only, like the rest of this section: grading (isCorrectForItem)
+// has already decided the answer is wrong by the time this runs, and
+// which variant looks "closest" here never feeds back into that decision.
+function closestAcceptedAnswer(rawInput, item) {
+  const candidates = item.acceptedAltAnswers
+    ? item.acceptedAnswers.concat(item.acceptedAltAnswers)
+    : item.acceptedAnswers;
+  const normInput = normalizeAnswer(rawInput);
+
+  let best = candidates[0];
+  let bestDistance = Infinity;
+  for (const candidate of candidates) {
+    // Every non-"match" step in the alignment is one unit of edit
+    // distance (insertion/deletion/substitution all cost 1 in
+    // levenshteinAlign's DP) -- reuses the same alignment machinery as
+    // diffAnswer below instead of a second distance implementation.
+    const distance = levenshteinAlign(normInput, candidate).filter((op) => op.op !== "match").length;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = candidate;
+    }
+  }
+  return best;
+}
+
 // Computes a display-ready diff between what the user typed (`rawInput`)
 // and the correct answer (`correctAnswer`), for visualizing where an
 // already-incorrect answer diverged. Alignment runs on normalized forms
@@ -239,6 +277,7 @@ if (typeof module !== "undefined" && module.exports) {
     isCorrectForItem,
     normalizeWithTrace,
     levenshteinAlign,
+    closestAcceptedAnswer,
     diffAnswer,
   };
 }

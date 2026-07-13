@@ -530,17 +530,22 @@
   // Renders "Not quite — " followed by the correct answer with a
   // character-level diff overlay against what was actually typed. Grading
   // has already happened by the time this runs (isCorrectForItem already
-  // returned false) -- this is purely visualizing where the divergence
-  // is, against the item's primary answer (the verb-only string that was
-  // actually graded, not the full pronoun+verb displayAnswer).
+  // returned false) -- this is purely visualizing where the divergence is.
+  // Diffs against whichever of the item's accepted variants (verb-only or,
+  // if typed, the full pronoun+verb phrase) is actually closest to what was
+  // typed (matching.js's closestAcceptedAnswer), not always the verb-only
+  // answer -- otherwise a legitimate full-phrase attempt with a wrong verb
+  // would show its correct pronoun as garbled/wrong, since it isn't part
+  // of the verb-only string.
   function renderAnswerDiff(rawInput, item) {
     els.feedback.textContent = "";
 
     els.feedback.appendChild(document.createTextNode("Not quite — "));
 
+    const diffTarget = closestAcceptedAnswer(rawInput, item);
     const diffEl = document.createElement("span");
     diffEl.className = "answer-diff";
-    diffAnswer(rawInput, item.answer).forEach((seg) => {
+    diffAnswer(rawInput, diffTarget).forEach((seg) => {
       const span = document.createElement("span");
       span.className = "diff-" + seg.kind;
       span.textContent = seg.text;
