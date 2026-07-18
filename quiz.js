@@ -139,6 +139,16 @@
       dayCount: 1,
       todayCount: 0,
       lastPracticeDate: null, // "YYYY-MM-DD" of the last answered question
+      // Phrases -- a separate content track from the conjugation levels
+      // above, with its own id namespace (hyphenated, never overlaps the
+      // dotted conjugation-item ids) and its own session stats, kept apart
+      // from `items`/`levelStats` on purpose (see CLAUDE.md's "Phrases"
+      // section). No test/lastTest/unlock concept -- continuous practice
+      // only, always accessible.
+      phrases: {
+        items: {}, // id -> { correct, incorrect, streak }
+        stats: freshLevelStats(), // session stats, same shape as levelStats entries
+      },
     };
   }
 
@@ -282,25 +292,28 @@
   }
 
   // ---------- weighted item picker ----------
-  // Currently unused by renderQuestion -- all three levels have a
+  // Unused by renderQuestion for the conjugation levels -- all three have a
   // TEST_CONFIG entry now, so the `else` branch below that calls
-  // pickWeightedItem never runs. Kept as shared fallback architecture for
-  // any future level that wants open-ended continuous practice instead of
-  // a fixed test. activePool() itself is still used by the word list.
+  // pickWeightedItem never runs for them. Actually used by Phrases (see
+  // that section further down), which is exactly the "any future level
+  // that wants open-ended continuous practice instead of a fixed test"
+  // this was kept around for -- weightedPick is the generic engine, shared
+  // by pickWeightedItem (conjugation items, module-level lastItemId) and
+  // pickWeightedPhrase (phrases, its own lastPhraseId) rather than each
+  // reimplementing the same streak-weighted, no-immediate-repeat logic.
+  // activePool() itself is also still used by the word list.
 
   function activePool() {
     return LEVEL_POOLS[state.level] || LEVEL1_ITEMS;
   }
 
-  let lastItemId = null;
-
-  function pickWeightedItem(pool) {
+  function weightedPick(pool, excludeId, getStats) {
     // Never repeat the immediately preceding item, unless the pool is too
     // small to avoid it.
     const candidates =
-      pool.length > 1 ? pool.filter((item) => item.id !== lastItemId) : pool;
+      pool.length > 1 ? pool.filter((item) => item.id !== excludeId) : pool;
     const weights = candidates.map((item) =>
-      Math.max(0.3, 3 - getItemStats(item.id).streak)
+      Math.max(0.3, 3 - getStats(item.id).streak)
     );
     const total = weights.reduce((a, b) => a + b, 0);
     let r = Math.random() * total;
@@ -309,6 +322,12 @@
       if (r <= 0) return candidates[i];
     }
     return candidates[candidates.length - 1];
+  }
+
+  let lastItemId = null;
+
+  function pickWeightedItem(pool) {
+    return weightedPick(pool, lastItemId, getItemStats);
   }
 
   // ---------- DOM ----------
@@ -327,6 +346,14 @@
     homeView: document.getElementById("home-view"),
     quizViewRoot: document.getElementById("quiz-view-root"),
     quizCard: document.getElementById("quiz-card"),
+    phrasesViewRoot: document.getElementById("phrases-view-root"),
+    phrasesCard: {
+      button: document.getElementById("phrases-card"),
+      fraction: document.getElementById("phrases-card-fraction"),
+      status: document.getElementById("phrases-card-status"),
+      track: document.getElementById("phrases-progress-track"),
+      fill: document.getElementById("phrases-progress-fill"),
+    },
     levelCards: {
       1: {
         button: document.getElementById("level-card-1"),
@@ -387,6 +414,14 @@
     wordListTitle: document.getElementById("word-list-title"),
     wordListBody: document.getElementById("word-list-body"),
     wordListClose: document.getElementById("word-list-close"),
+    phraseStatStreak: document.getElementById("phrase-stat-streak"),
+    phraseStatAccuracy: document.getElementById("phrase-stat-accuracy"),
+    phraseStatTotal: document.getElementById("phrase-stat-total"),
+    phraseGloss: document.getElementById("phrase-gloss"),
+    phrasePrompt: document.getElementById("phrase-prompt"),
+    phraseOptions: document.getElementById("phrase-options"),
+    phraseFeedback: document.getElementById("phrase-feedback"),
+    phraseNext: document.getElementById("phrase-next"),
   };
 
   let currentItem = null;
@@ -397,6 +432,11 @@
   // to (re)trigger the streak bump animation on a correct answer.
   let streakReset = false;
   let pendingStreakBump = false;
+  // Same cosmetic pattern, but for Phrases' own stats band -- kept as
+  // separate variables (not reused from above) since it's a fully separate
+  // DOM region with its own stat elements; see the "phrases" section below.
+  let phraseStreakReset = false;
+  let phrasePendingStreakBump = false;
 
   function renderStats() {
     const levelStats = state.levelStats[state.level];
@@ -628,6 +668,180 @@
     renderQuestion();
   }
 
+  // ---------- phrases ----------
+  // A separate content track from the conjugation levels above -- phrase
+  // recognition (multiple choice) rather than verb production (typing), no
+  // fixed test/pass-threshold, always accessible (no unlock gating). See
+  // CLAUDE.md's "Phrases" section for the full rationale. Grading here is
+  // deliberately trivial (exact string equality on which option was
+  // clicked) and never touches matching.js -- keep it that way.
+
+  function getPhraseStats(id) {
+    return state.phrases.items[id] || { correct: 0, incorrect: 0, streak: 0 };
+  }
+
+  // Mirrors recordAnswer() but scoped to state.phrases -- separate item
+  // stats and session stats from the conjugation levels, on purpose. Still
+  // calls touchPracticeDay(): the header's Day-N/answered-today line is a
+  // global practice measure, not specific to which content track you're
+  // drilling. Does NOT call checkMilestones() -- that's the verb-mastery
+  // export system, which has no equivalent concept for phrases.
+  function recordPhraseAnswer(id, isCorrect) {
+    touchPracticeDay();
+    const stats = getPhraseStats(id);
+    if (isCorrect) {
+      stats.correct += 1;
+      stats.streak += 1;
+    } else {
+      stats.incorrect += 1;
+      stats.streak = 0;
+    }
+    state.phrases.items[id] = stats;
+
+    const phraseStats = state.phrases.stats;
+    phraseStats.totalAnswered += 1;
+    if (isCorrect) {
+      phraseStats.totalCorrect += 1;
+      phraseStats.currentStreak += 1;
+    } else {
+      phraseStats.currentStreak = 0;
+    }
+  }
+
+  let lastPhraseId = null;
+
+  function pickWeightedPhrase() {
+    return weightedPick(PHRASES, lastPhraseId, getPhraseStats);
+  }
+
+  // 1 correct answer + 4 distractors drawn from the OTHER 21 phrases'
+  // Arabic answers, reshuffled every question -- not a fixed distractor
+  // set. Reuses the same shuffle() used for the conjugation levels' fixed
+  // tests.
+  function buildPhraseOptions(phrase) {
+    const others = shuffle(PHRASES.filter((p) => p.id !== phrase.id));
+    const distractors = others.slice(0, 4).map((p) => p.ar);
+    return shuffle([phrase.ar, ...distractors]);
+  }
+
+  function renderPhraseStats() {
+    const stats = state.phrases.stats;
+    els.phraseStatStreak.textContent = stats.currentStreak;
+    els.phraseStatTotal.textContent = stats.totalAnswered;
+    els.phraseStatAccuracy.textContent =
+      stats.totalAnswered === 0
+        ? "—"
+        : Math.round((stats.totalCorrect / stats.totalAnswered) * 100) + "%";
+
+    els.phraseStatStreak.classList.toggle("is-reset", phraseStreakReset);
+    if (phrasePendingStreakBump) {
+      phrasePendingStreakBump = false;
+      els.phraseStatStreak.classList.remove("bump");
+      void els.phraseStatStreak.offsetWidth; // force reflow so the animation retriggers
+      els.phraseStatStreak.classList.add("bump");
+    }
+  }
+
+  let currentPhrase = null;
+  let awaitingNextPhrase = false;
+
+  function renderPhraseQuestion() {
+    currentPhrase = pickWeightedPhrase();
+    lastPhraseId = currentPhrase.id;
+    awaitingNextPhrase = false;
+
+    els.phraseGloss.textContent = currentPhrase.en;
+    els.phrasePrompt.textContent = currentPhrase.lb;
+    els.phraseFeedback.textContent = "";
+    els.phraseFeedback.className = "feedback";
+    els.phraseNext.hidden = true;
+
+    els.phraseOptions.innerHTML = "";
+    buildPhraseOptions(currentPhrase).forEach((optionText) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "phrase-option";
+      btn.textContent = optionText;
+      btn.addEventListener("click", function () {
+        handlePhraseAnswer(optionText, btn);
+      });
+      els.phraseOptions.appendChild(btn);
+    });
+  }
+
+  // Grading is a trivial exact-match on the clicked option's own text
+  // against currentPhrase.ar -- no normalization, no matching.js. Every
+  // option's text is drawn verbatim from a phrase's `ar` field (see
+  // buildPhraseOptions), so string equality is exact and unambiguous.
+  function handlePhraseAnswer(selected, btnEl) {
+    if (awaitingNextPhrase) return;
+    awaitingNextPhrase = true;
+
+    const correct = selected === currentPhrase.ar;
+    recordPhraseAnswer(currentPhrase.id, correct);
+
+    if (correct) {
+      phraseStreakReset = false;
+      phrasePendingStreakBump = true;
+    } else {
+      phraseStreakReset = true;
+    }
+
+    Array.from(els.phraseOptions.children).forEach((btn) => {
+      btn.disabled = true;
+      if (btn.textContent === currentPhrase.ar) {
+        btn.classList.add("correct"); // the right answer, revealed either way
+      } else if (btn === btnEl) {
+        btn.classList.add("incorrect"); // the wrong option actually clicked
+      }
+    });
+
+    els.phraseFeedback.textContent = correct ? "Correct." : "Not quite.";
+    els.phraseFeedback.className = "feedback " + (correct ? "correct" : "incorrect");
+    els.phraseNext.hidden = false;
+
+    saveState();
+    renderPhraseStats();
+    renderPracticeLine();
+    els.phraseNext.focus();
+  }
+
+  function renderPhrasesView() {
+    renderPhraseStats();
+    renderPhraseQuestion();
+  }
+
+  // Home-card summary: "coverage" (how many of the 22 phrases have been
+  // attempted at least once) stands in for the fraction badge the
+  // conjugation levels use for "how far into the fixed test", since
+  // Phrases has no fixed test to measure progress through. Presence as a
+  // key in state.phrases.items means "answered at least once" (recordPhraseAnswer
+  // always sets it, whether right or wrong).
+  function phrasesCardState() {
+    const total = PHRASES.length;
+    const seen = PHRASES.filter((p) =>
+      Object.prototype.hasOwnProperty.call(state.phrases.items, p.id)
+    ).length;
+    const stats = state.phrases.stats;
+
+    const label =
+      stats.totalAnswered === 0
+        ? "Not started"
+        : `In progress — ${Math.round((stats.totalCorrect / stats.totalAnswered) * 100)}% accuracy so far`;
+
+    return {
+      fraction: { num: seen, den: total },
+      label,
+      percent: Math.round((seen / total) * 100),
+    };
+  }
+
+  function goToPhrases() {
+    view = "phrases";
+    phraseStreakReset = false; // fresh visit -- don't carry a stale reset color in
+    render();
+  }
+
   // ---------- home screen ----------
 
   function levelUnlocked(level) {
@@ -790,6 +1004,13 @@
         card.note.hidden = true;
       }
     });
+
+    // Phrases card is always clickable (no lock/note concept -- see
+    // "Phrases" section above), so it skips most of the branching above.
+    const ps = phrasesCardState();
+    els.phrasesCard.fraction.textContent = `${ps.fraction.num}/${ps.fraction.den}`;
+    els.phrasesCard.status.textContent = ps.label;
+    els.phrasesCard.fill.style.width = ps.percent + "%";
   }
 
   function goToLevel(level) {
@@ -806,15 +1027,21 @@
   }
 
   function render() {
-    renderPracticeLine(); // header line is visible on both home and quiz views
+    renderPracticeLine(); // header line is visible on every view
     els.homeBtn.hidden = view === "home";
+    // Word list is specific to the conjugation levels' content -- hide it
+    // while browsing Phrases rather than showing an unrelated word list.
+    els.wordListBtn.hidden = view === "phrases";
+
+    els.homeView.hidden = view !== "home";
+    els.quizViewRoot.hidden = view !== "quiz";
+    els.phrasesViewRoot.hidden = view !== "phrases";
+
     if (view === "home") {
-      els.homeView.hidden = false;
-      els.quizViewRoot.hidden = true;
       renderHome();
+    } else if (view === "phrases") {
+      renderPhrasesView();
     } else {
-      els.homeView.hidden = true;
-      els.quizViewRoot.hidden = false;
       renderQuizView();
     }
   }
@@ -972,6 +1199,8 @@
       goToLevel(level);
     });
   });
+  els.phrasesCard.button.addEventListener("click", goToPhrases);
+  els.phraseNext.addEventListener("click", renderPhraseQuestion);
 
   // ---------- init ----------
 

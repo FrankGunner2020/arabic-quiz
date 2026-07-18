@@ -51,6 +51,18 @@
   --l3-pale: #dcc9a8;
   --l3-kicker: #eee4d4;
 
+  /* Phrases hue -- same token shape as l1/l2/l3 (base / pale tint / soft
+     border / dim text-on-tint / pale companion / kicker tint), but Phrases
+     is not a numbered level: it's a separate content track (see CLAUDE.md's
+     "Phrases" section), so it gets its own named token set rather than
+     being wedged into the l1-3 numbering. */
+  --phrases: #7d5aa6;
+  --phrases-tint: #efe9f6;
+  --phrases-border: #c7b3dd;
+  --phrases-dim: #5d3d82;
+  --phrases-pale: #c7b3dd;
+  --phrases-kicker: #e3d9ee;
+
   /* milestone-takeover frame (translucent white, same across levels) */
   --milestone-frame: rgba(255, 255, 255, 0.35);
 
@@ -96,6 +108,14 @@
   --level-dim: var(--l3-dim);
   --level-pale: var(--l3-pale);
   --level-kicker: var(--l3-kicker);
+}
+[data-level="phrases"] {
+  --level: var(--phrases);
+  --level-tint: var(--phrases-tint);
+  --level-border: var(--phrases-border);
+  --level-dim: var(--phrases-dim);
+  --level-pale: var(--phrases-pale);
+  --level-kicker: var(--phrases-kicker);
 }
 
 * {
@@ -509,6 +529,75 @@ body {
 }
 
 .progress-counter[hidden] {
+  display: none;
+}
+
+/* Phrases -- multiple-choice options */
+
+.phrase-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.phrase-option {
+  font-family: var(--mono);
+  font-style: italic;
+  font-size: 0.95rem;
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-plate);
+  padding: 14px 16px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.phrase-option:hover:not(:disabled) {
+  border-color: var(--level, var(--arabic));
+}
+
+.phrase-option:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* The clicked-and-right, and the revealed-actually-right, option share this
+   style -- both mean "this is the correct answer". Full opacity overrides
+   the dimmed :disabled default so these two stay legible/highlighted. */
+.phrase-option.correct {
+  border-color: var(--correct);
+  background: var(--correct-bg);
+  color: var(--correct);
+  opacity: 1;
+}
+
+/* Only the option the user actually clicked, when wrong. */
+.phrase-option.incorrect {
+  border-color: var(--incorrect);
+  background: var(--incorrect-bg);
+  color: var(--incorrect);
+  opacity: 1;
+}
+
+.phrase-next {
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  background: none;
+  border: 1px solid var(--ink-dim);
+  border-radius: var(--radius-plate);
+  color: var(--ink);
+  padding: 12px 24px;
+  margin-top: 16px;
+  cursor: pointer;
+}
+
+.phrase-next:hover {
+  border-color: var(--level, var(--arabic));
+  color: var(--level, var(--arabic));
+}
+
+.phrase-next[hidden] {
   display: none;
 }
 

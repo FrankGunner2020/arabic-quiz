@@ -256,6 +256,56 @@ function buildItems() {
 
 const ITEMS = buildItems();
 
+// ---------------------------------------------------------------------
+// Phrases -- a separate content track from the verb-conjugation levels
+// above (Level 1/2/3), not a continuation of them. Different skill (phrase
+// recognition vs. verb production), different question format (multiple
+// choice vs. typing), no fixed test/pass-threshold. See CLAUDE.md's
+// "Phrases" section for the full architecture; the short version is that
+// this array is the ENTIRE data surface for that feature -- unlike VERBS/
+// ITEMS above, phrases are never run through generateAcceptedAnswers or
+// any of matching.js's machinery, since grading here is trivial exact-match
+// on which multiple-choice option was clicked (see quiz.js). `id` is a
+// stable slug (never derived from `lb`/`en` at runtime) used for per-phrase
+// streak stats, the same way conjugation items use their own id scheme --
+// the two id namespaces don't overlap (dotted vs. hyphenated) so they can
+// safely share the general shuffle/weighting helpers in quiz.js without
+// ever colliding.
+const PHRASES = [
+  { id: "moien", lb: "Moien", en: "hello", ar: "marhaban" },
+  { id: "gudde-moien", lb: "Gudde Moien", en: "good morning", ar: "sabah al-khayr" },
+  { id: "gudden-owend", lb: "Gudden Owend", en: "good evening", ar: "masa al-khayr" },
+  { id: "wei-geet-et-iech", lb: "Wéi geet et Iech?", en: "how are you?", ar: "kayfa haluk" },
+  { id: "mir-geet-et-gutt", lb: "Mir geet et gutt, merci", en: "I'm fine, thank you", ar: "ana bikhayr, shukran" },
+  { id: "merci", lb: "Merci", en: "thank you", ar: "shukran" },
+  { id: "gaer-geschitt", lb: "Gär geschitt", en: "you're welcome", ar: "afwan" },
+  { id: "wann-ech-gelift", lb: "Wann ech gelift", en: "please", ar: "min fadlak" },
+  { id: "entschellegt", lb: "Entschëllegt", en: "sorry / excuse me", ar: "asif" },
+  { id: "jo", lb: "Jo", en: "yes", ar: "na'am" },
+  { id: "nee", lb: "Nee", en: "no", ar: "la" },
+  { id: "wei-heeschs-du", lb: "Wéi heeschs du?", en: "what is your name?", ar: "ma ismuk" },
+  { id: "ech-heeschen", lb: "Ech heeschen...", en: "my name is...", ar: "ismi..." },
+  { id: "wat-mechs-du", lb: "Wat méchs du?", en: "what are you doing?", ar: "madha taf'al" },
+  { id: "firwat-mechs-du-dat", lb: "Firwat méchs du dat?", en: "why are you doing that?", ar: "limadha taf'al dhalik" },
+  { id: "vu-wou-kenns-du", lb: "Vu wou kënns du?", en: "where are you from?", ar: "min ayna anta" },
+  { id: "wei-al-bass-du", lb: "Wéi al bass du?", en: "how old are you?", ar: "kam umruk" },
+  { id: "ech-verstinn-net", lb: "Ech verstinn net", en: "I don't understand", ar: "la afham" },
+  { id: "addi", lb: "Äddi", en: "goodbye", ar: "ma'a as-salama" },
+  { id: "wou-ass", lb: "Wou ass...?", en: "where is...?", ar: "ayna..." },
+  {
+    id: "ech-schwatzen-nemmen-e-bessen-arabesch",
+    lb: "Ech schwätzen nëmmen e bëssen Arabesch",
+    en: "I just speak a little Arabic",
+    ar: "atakallam al-arabiyya qaliylan",
+  },
+  {
+    id: "ech-sinn-gemescht",
+    lb: "Ech sinn gemëscht, Lëtzebuergesch-Algeresch",
+    en: "I am mixed, I am Luxembourgish-Algerian",
+    ar: "ana mukhtalit, luksemburgi jazairi",
+  },
+];
+
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { PERSONS, VERBS, ITEMS };
+  module.exports = { PERSONS, VERBS, ITEMS, PHRASES };
 }

@@ -1,28 +1,36 @@
 # Arabic Quiz
 
 A personal language-learning ledger: it drills translating Lëtzebuergesch
-(Luxembourgish) verbs into Arabic, phonetically. There's no Arabic script here
+(Luxembourgish) into Arabic, phonetically. There's no Arabic script here
 on purpose — the goal is to internalize the sounds first, before reading
 kicks in.
 
 Direction is always one-way, Lëtzebuergesch → Arabic phonetic, because that's
-the direction that actually trains speaking. Every question is typed, not
-multiple choice, so recall is forced rather than recognition.
+the direction that actually trains speaking.
+
+Two separate tracks, deliberately not blended together:
+
+- **Verb conjugation (Levels 1/2/3)** — every question is typed, not
+  multiple choice, so recall is forced rather than recognition. See
+  "Verb conjugation" below.
+- **Phrases** — everyday greetings and set phrases, drilled by multiple
+  choice (recognition, not production) with no fixed test or pass
+  threshold. See "Phrases" below.
 
 Live at: https://arabic-quiz-gunner-ops.vercel.app
 
-## Mechanics
+## Verb conjugation (Levels 1/2/3)
 
 **A home screen is the landing page, not any particular level.** Every page
-load opens on an overview with one card per level — status ("Not started",
-"In progress", "Passed — X/Y"), a mono fraction badge next to the title
-("31/52"), a progress bar, and a lock note for levels not yet unlocked —
-rather than always dropping back into whichever level was last active. Each
-level card is a soft-rounded shell with a spine in that level's own color
-(blue for Level 1, teal for Level 2, amber for Level 3) — the same hue
-carries through into that level's pills, prompt background, and progress
-fill once you're inside it. Clicking an unlocked card jumps straight into
-that level,
+load opens on an overview with one card per level plus a Phrases card
+(see below) — status ("Not started", "In progress", "Passed — X/Y"), a
+mono fraction badge next to the title ("31/52"), a progress bar, and a
+lock note for levels not yet unlocked — rather than always dropping back
+into whichever level was last active. Each card is a soft-rounded shell
+with a spine in its own color (blue for Level 1, teal for Level 2, amber
+for Level 3, violet for Phrases) — the same hue carries through into that
+section's pills, prompt background, and progress fill once you're inside
+it. Clicking an unlocked level card jumps straight into that level,
 resuming an in-progress attempt if one exists or starting fresh otherwise;
 replaying an already-passed level is always allowed and never re-locks a
 later level (unlocking only ever moves forward, tracked separately from
@@ -110,16 +118,18 @@ for wëssen's "ya'lam" (to know) was accepted even though "yafam" is
 actually a fragment of a different verb entirely (verstoen's "yafham", to
 understand). Precision over convenience.
 
-**Per-item streaks feed milestones; the weighted-repetition picker itself is
-currently unused.** Each item (an infinitive or a conjugated form) tracks a
-running correct-streak regardless of which level it's answered in — that
-streak is what milestone mastery (see below) is based on. `quiz.js` also
-has a weighted-random item picker built for continuous, open-ended
-practice, excluding whatever was just asked and weighting so lower-streak
-items come up more often (`weight = max(0.3, 3 - streak)`), but since all
-three levels are now fixed shuffle-once-no-repeats tests, no level actually
-calls it — it's kept as ready-made fallback architecture for any future
-level that wants that style of practice instead.
+**Per-item streaks feed milestones; the weighted-repetition picker itself
+isn't used by any conjugation level.** Each item (an infinitive or a
+conjugated form) tracks a running correct-streak regardless of which level
+it's answered in — that streak is what milestone mastery (see below) is
+based on. `quiz.js` also has a weighted-random item picker built for
+continuous, open-ended practice, excluding whatever was just asked and
+weighting so lower-streak items come up more often
+(`weight = max(0.3, 3 - streak)`), but since all three conjugation levels
+are fixed shuffle-once-no-repeats tests, none of them call it — it's kept
+as ready-made architecture for any level that wants that style of practice
+instead, and Phrases (see below) is exactly that: it uses this same picker
+for real, not just as a fallback sitting unused.
 
 **Stats persist across sessions, scoped per level.** Per-item correct/
 incorrect counts and streaks are tracked globally (used for weighting and
@@ -144,7 +154,36 @@ into [`progress-log.json`](progress-log.json) and commit — that's what turns
 "I actually learned this" into a real, dated entry in the git history,
 alongside the code changes. Per-item correct/incorrect/streak stats are
 tracked for every item regardless of level, purely for this weighting and
-milestone logic — there's no progress-bar UI for them.
+milestone logic — there's no progress-bar UI for them. Phrases has no
+equivalent milestone/export system.
+
+## Phrases
+
+A separate content track, not a continuation of the numbered levels —
+everyday greetings and set phrases (22 of them), drilled by recognition
+instead of production. Always accessible from the home screen, no
+unlocking required.
+
+**Multiple choice, not typing.** The Lëtzebuergesch phrase and its English
+gloss are shown the same way a conjugation prompt is; below it are 5
+tappable Arabic phonetic options — the correct answer plus 4 distractors
+drawn at random from the other 21 phrases' answers, freshly reshuffled
+every question. Selecting an option grades immediately: right answers turn
+green, a wrong pick turns red and the actually-correct option lights up
+green too, so the right answer is always revealed. A "Next" button then
+loads a new question. Grading here is a plain exact match on which option
+was clicked — none of the spelling-variant/typo-tolerance machinery the
+conjugation levels use applies, on purpose; there's nothing to type; so
+there's nothing to grade the spelling of.
+
+**Continuous practice, no fixed test.** Like the conjugation levels used
+to be before Level 3 became a fixed test, Phrases just keeps going:
+weighted-random selection (lower-streak phrases come up more often, same
+`weight = max(0.3, 3 - streak)` formula and never-repeat-the-last-one rule
+as the levels' shared picker — see above), no target length, no pass
+threshold. The home card's fraction badge shows "coverage" instead (how
+many of the 22 phrases you've been asked at least once), since there's no
+fixed-length test to show progress through.
 
 ## Data model
 
@@ -179,13 +218,26 @@ per infinitive and per conjugated form — each with a stable id of the shape
 Each item also gets a `level` (1: infinitive, 2: ech/du/hien/hatt forms, 3:
 mir/dir/si forms) that the app filters on for the active level's pool.
 
+Phrases has its own, much simpler dataset, unrelated to `VERBS`/`ITEMS` —
+`PHRASES` in `data.js`, 22 flat objects with no flattening/build step:
+
+```js
+{ id: "gudde-moien", lb: "Gudde Moien", en: "good morning", ar: "sabah al-khayr" }
+```
+
+`id` is a hyphenated slug, kept distinct from the conjugation items' dotted
+ids on purpose (`verbId.person` / `verbId.inf`) so per-item stats for the
+two tracks can never collide even though they're tracked with the same
+kind of `{ correct, incorrect, streak }` shape.
+
 ## Files
 
 ```
-index.html         markup: header, home screen, quiz card, export panel
-style.css          navy/soft-blue palette, soft-rounded radii, per-level hues
-data.js            the 13 verbs, their forms, and the ITEMS flattening
-quiz.js            answer matching, item selection, leveling, stats, persistence, rendering
+index.html         markup: header, home screen, quiz card, phrases card, export panel
+style.css          navy/soft-blue palette, soft-rounded radii, per-level (+ phrases) hues
+data.js            the 13 verbs, their forms, the ITEMS flattening, and the 22 PHRASES
+matching.js        answer matching/grading -- conjugation levels only, unused by Phrases
+quiz.js            answer matching, item selection, leveling, phrases, stats, persistence, rendering
 progress-log.json  dated record of verbs reaching full mastery
 ```
 

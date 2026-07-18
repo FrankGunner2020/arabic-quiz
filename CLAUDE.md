@@ -9,26 +9,86 @@
 - Vercel "Deployment Protection" was manually disabled for this project (on by default for new projects) — check for this on any future fresh Vercel project for this user.
 
 ## Files
-- `index.html` — header (practice line + Home/Word list buttons), #home-view (level cards), #quiz-view-root (stats band, quiz shell/panel, result view with plain-fail and milestone-pass sub-views, export panel), word-list modal.
-- `style.css` — palette + design-system tokens live in :root vars: base palette (--header-bg #1b3a6b, --border #9fb9dd, --ink #16233d, --ink-dim #5b7299, --arabic #3d6cb9, --correct/--incorrect + *-bg pairs), radii (--radius-shell/panel/plate/pill), per-level hue sets (--l1/--l2/--l3 + *-tint/*-border/*-dim/*-pale/*-kicker), milestone dot hues (--dot-*). Soft rounding + tonal layering throughout (no box-shadows anywhere — see "Visual design system" below). Always reference the vars, never hardcode hex. Font is Source Serif 4, only weights 400/600 loaded — never set font-weight:700 on --serif text.
-- `data.js` — 13 verbs x 7 persons (ech/du/hien/hatt/mir/dir/si = ana/anta/huwa/hiya/nahnu/antum/hum). `buildItems()` flattens to `ITEMS[]` with stable ids (`${verbId}.inf` or `${verbId}.${person}`), a `level` field (1=infinitive, 2=ana/anta/huwa/hiya, 3=nahnu/antum/hum), and each item's precomputed `acceptedAnswers`/`acceptedAltAnswers` (depends on matching.js's `generateAcceptedAnswers` — see "Grading rules" for the load-order/require wiring this needs).
-- `matching.js` — grading (normalizeAnswer, generateAcceptedAnswers, isAnswerCorrect, isCorrectForItem) — exact-match only, no fuzzy tolerance, see "Grading rules" below — PLUS a separate, display-only diff engine (normalizeWithTrace, levenshteinAlign, closestAcceptedAnswer, diffAnswer) for incorrect-answer character-diff feedback. The two halves are independent — the diff engine never influences grading, keep it that way. `data.js` requires `generateAcceptedAnswers` from here to precompute each item's accepted-answer list; see script load order note under "Grading rules".
-- `quiz.js` — state, view routing (home/quiz), fixed-test machinery (levels 1/2/3), home-screen cards (incl. per-card fraction badge), level-hue pills + milestone takeover rendering, the Day-N/answered-today practice line, per-level stats, answer-diff rendering, persistence, plus an unused continuous-practice picker kept as fallback architecture. Largest file — if it keeps growing, split by concern (test machinery / state / rendering) rather than letting one file keep absorbing everything.
-- `scripts/self-test.js` — run via `node scripts/self-test.js`. Asserts every item's answer grades against itself, apostrophe-variant handling, and "right pronoun + wrong verb must be rejected." Run after any data.js/matching.js edit. Must stay 100%.
+- `index.html` — header (practice line + Home/Word list buttons), #home-view (level cards + the Phrases card), #quiz-view-root (stats band, quiz shell/panel, result view with plain-fail and milestone-pass sub-views, export panel), #phrases-view-root (its own stats band + quiz shell/panel, multiple-choice options), word-list modal.
+- `style.css` — palette + design-system tokens live in :root vars: base palette (--header-bg #1b3a6b, --border #9fb9dd, --ink #16233d, --ink-dim #5b7299, --arabic #3d6cb9, --correct/--incorrect + *-bg pairs), radii (--radius-shell/panel/plate/pill), per-level hue sets (--l1/--l2/--l3/--phrases + *-tint/*-border/*-dim/*-pale/*-kicker), milestone dot hues (--dot-*). Soft rounding + tonal layering throughout (no box-shadows anywhere — see "Visual design system" below). Always reference the vars, never hardcode hex. Font is Source Serif 4, only weights 400/600 loaded — never set font-weight:700 on --serif text.
+- `data.js` — 13 verbs x 7 persons (ech/du/hien/hatt/mir/dir/si = ana/anta/huwa/hiya/nahnu/antum/hum). `buildItems()` flattens to `ITEMS[]` with stable ids (`${verbId}.inf` or `${verbId}.${person}`), a `level` field (1=infinitive, 2=ana/anta/huwa/hiya, 3=nahnu/antum/hum), and each item's precomputed `acceptedAnswers`/`acceptedAltAnswers` (depends on matching.js's `generateAcceptedAnswers` — see "Grading rules" for the load-order/require wiring this needs). Also holds `PHRASES` (22 objects, see "Phrases" below) — a completely separate, much simpler dataset with no relationship to `ITEMS`/`VERBS` and no `generateAcceptedAnswers` involvement.
+- `matching.js` — grading (normalizeAnswer, generateAcceptedAnswers, isAnswerCorrect, isCorrectForItem) — exact-match only, no fuzzy tolerance, see "Grading rules" below — PLUS a separate, display-only diff engine (normalizeWithTrace, levenshteinAlign, closestAcceptedAnswer, diffAnswer) for incorrect-answer character-diff feedback. The two halves are independent — the diff engine never influences grading, keep it that way. `data.js` requires `generateAcceptedAnswers` from here to precompute each item's accepted-answer list; see script load order note under "Grading rules". None of this file is used by Phrases (see below) — that section grades separately and deliberately doesn't import anything from here.
+- `quiz.js` — state, view routing (home/quiz/phrases), fixed-test machinery (levels 1/2/3), home-screen cards (incl. per-card fraction badge), level-hue pills + milestone takeover rendering, the Day-N/answered-today practice line, per-level stats, answer-diff rendering, persistence, the Phrases section (see below), plus a shared weighted-repetition picker (`weightedPick`) used by both the conjugation levels' dormant continuous-practice fallback and by Phrases for real. Largest file — if it keeps growing, split by concern (test machinery / state / rendering / phrases) rather than letting one file keep absorbing everything.
+- `scripts/self-test.js` — run via `node scripts/self-test.js`. Asserts every item's answer grades against itself, apostrophe-variant handling, and "right pronoun + wrong verb must be rejected." Run after any data.js/matching.js edit. Must stay 100%. Conjugation-only — doesn't cover Phrases (nothing in that section touches matching.js/data.js's `ITEMS`, so there's nothing for this suite to regress).
 - `scripts/audit-hiya.js` — run via `node scripts/audit-hiya.js`. Verifies every hiya item's arVerb equals anta's and differs from huwa's, against a hardcoded reference table. Run after any data.js edit touching hien/hatt/hiya forms.
-- `progress-log.json` — manually-committed record of verbs reaching full mastery, via the "New milestones" export panel. Not auto-written.
+- `progress-log.json` — manually-committed record of verbs reaching full mastery, via the "New milestones" export panel. Not auto-written. Phrases has no equivalent milestone/export concept.
 
 ## Levels & test mechanics
 - Level 1: 13 infinitives. Fixed test, 13 questions shuffled once per attempt, no repeats. Pass = 12/13 (85%+).
 - Level 2: ana/anta/huwa/hiya, 52 items. Fixed test, same pattern. Pass = 45/52 (85%+).
-- Level 3: nahnu/antum/hum, 39 items. Fixed test, same pattern as Levels 1/2. Pass = 34/39 (85%+). It's the last level: passing doesn't unlock a next level (`TEST_CONFIG[3].nextLevel` is `null`), so the result-screen action and the home card land back on Home / show "Completed — X/Y" instead of advancing. The weighted-repetition continuous-practice picker (`pickWeightedItem`/`activePool` in quiz.js) still exists but is unreachable now that all three levels have a `TEST_CONFIG` entry — kept as fallback architecture for a hypothetical future continuous-practice level.
-- Shared fixed-test machinery lives in `TEST_CONFIG`, keyed by level — extend this rather than duplicating Level 1/2's logic for any future fixed-test level.
-- `state.unlockedLevel` (monotonic) gates navigation, decoupled from `state.level` (which can move backward when replaying an already-passed level from home) — replaying Level 1 never re-locks Level 2.
+- Level 3: nahnu/antum/hum, 39 items. Fixed test, same pattern as Levels 1/2. Pass = 34/39 (85%+). It's the last level: passing doesn't unlock a next level (`TEST_CONFIG[3].nextLevel` is `null`), so the result-screen action and the home card land back on Home / show "Completed — X/Y" instead of advancing. The weighted-repetition continuous-practice picker (`weightedPick`/`pickWeightedItem`/`activePool` in quiz.js) still exists but is unreachable by any conjugation level now that all three have a `TEST_CONFIG` entry — no longer purely hypothetical fallback architecture, though: Phrases (see below) actually uses `weightedPick` for real.
+- Shared fixed-test machinery lives in `TEST_CONFIG`, keyed by level — extend this rather than duplicating Level 1/2's logic for any future fixed-test level. Phrases deliberately does NOT use this (see below) — it has no fixed test at all.
+- `state.unlockedLevel` (monotonic) gates navigation, decoupled from `state.level` (which can move backward when replaying an already-passed level from home) — replaying Level 1 never re-locks Level 2. Phrases has no unlock concept at all — always accessible.
 - `state.lastTest[level] = {correctCount, total}` is a read-only snapshot for the home card's "Passed — X/Y" label — doesn't feed scoring/unlock logic.
 - `ensureTest()` validates a saved test.order against id-existence AND `item.level === state.level`, regenerating if either check fails — guards against orphaned ids after a data.js rename and against a stale test belonging to a different level.
 - Switching `state.level` away from an unfinished test to a DIFFERENT level discards that in-progress test (single global `state.test` slot, not per-level). Returning to the SAME level preserves progress. Known/accepted limitation, not a bug.
 - Session stats (streak/accuracy/answered) tracked per level via `state.levelStats[level]`, accumulate across retries within a level (not reset per attempt).
-- Home screen (`view = "home"|"quiz"`) is the landing page, runtime-only state, NOT persisted across reloads.
+- Home screen (`view = "home"|"quiz"|"phrases"`) is the landing page, runtime-only state, NOT persisted across reloads. `render()` branches three ways on `view`; `els.homeView`/`els.quizViewRoot`/`els.phrasesViewRoot` visibility is set explicitly for all three on every render, not just toggled between two.
+
+## Phrases
+A separate content track from the numbered conjugation levels above, not a
+continuation of them — different skill (phrase recognition vs. verb
+production), different question format (multiple choice vs. typing), no
+fixed test/pass-threshold, no unlock gating. Deliberately architected as
+its own thing rather than squeezed into the `state.level`/`TEST_CONFIG`
+system, which is fixed-test-shaped and doesn't fit multiple choice or
+"no target length" well.
+- Data: `PHRASES` in data.js — 22 plain objects `{ id, lb, en, ar }`
+  (Lëtzebuergesch text, English gloss, Arabic Fusha phonetic answer). `id`
+  is a hyphenated slug (e.g. `"gudde-moien"`), never derived from `lb`/`en`
+  at runtime, and never overlaps the conjugation items' dotted id scheme
+  (`verbId.person`/`verbId.inf`) — the two id namespaces coexist safely
+  without ever needing to check for collisions.
+- Grading is deliberately trivial and fully separate from matching.js: a
+  clicked option is correct iff its text === `currentPhrase.ar` exactly
+  (`handlePhraseAnswer` in quiz.js). No normalization, no accepted-answer
+  lists, no `generateAcceptedAnswers` involvement at all — don't route
+  Phrases through any of the conjugation levels' grading machinery, even
+  if it looks reusable at a glance.
+- Multiple choice: `buildPhraseOptions(phrase)` shuffles the other 21
+  phrases, takes 4 of their `ar` values as distractors, adds the correct
+  `ar`, and shuffles the resulting 5 — freshly reshuffled every question,
+  not a fixed distractor set. Reuses the same `shuffle()` the fixed tests
+  use for their question order.
+- Continuous weighted-repetition practice — the same mechanic Level 3 used
+  before it became a fixed test, and the reason that mechanic was kept
+  around as "fallback architecture" in the first place. `pickWeightedPhrase()`
+  and `pickWeightedItem()` are both now thin wrappers around a shared
+  `weightedPick(pool, excludeId, getStats)` (same streak-weighting formula,
+  `max(0.3, 3 - streak)`, and no-immediate-repeat rule as before) instead of
+  duplicating that logic. This can become a fixed test later (add a
+  `TEST_CONFIG` entry, a phrase pool, etc.) without restructuring the picker.
+- State lives in `state.phrases = { items, stats }` — its own namespace,
+  separate from `state.items`/`state.levelStats` even though there's no
+  actual id-collision risk (hyphenated vs. dotted ids). Kept apart on
+  purpose, for architectural independence, not because it was technically
+  required. `state.phrases.stats` accumulates forever, same as `levelStats`
+  (never reset except via `defaultState()`). `recordPhraseAnswer()` still
+  calls `touchPracticeDay()` — the header's Day-N/answered-today line is a
+  global practice measure across every content track, not conjugation-only.
+  It does NOT call `checkMilestones()` — phrases have no verb-mastery/export
+  equivalent.
+- Home card (`#phrases-card`) reuses the exact `.level-card` markup/CSS as
+  the numbered levels, with its own hue (`--phrases`, a violet, added
+  alongside `--l1/--l2/--l3` with the same tint/border/dim/pale/kicker
+  companion tokens, resolved via `[data-level="phrases"]` in the same alias
+  block). Its fraction badge is "coverage" (phrases attempted at least
+  once, tracked by presence as a key in `state.phrases.items` / 22 total)
+  rather than a fixed-test fraction, since there's no fixed test to measure
+  progress through.
+- Quiz view (`#phrases-view-root`) is a fully separate DOM region, not
+  layered into `#quiz-view-root`. It reuses the SAME CSS classes
+  (`.session-stats`, `.quiz-shell`, `.quiz-panel`, `.q-pills`,
+  `.prompt-plate`) for visual consistency with the conjugation levels, but
+  none of the underlying render functions, state, or grading are shared.
+- The "Word list" header button hides while `view === "phrases"` — that
+  feature is specific to conjugation content and would be confusing to
+  leave visible/functional while browsing phrases.
 
 ## Visual design system
 Soft-roundness redesign layered onto the original navy/ivory, serif-content/
@@ -40,12 +100,16 @@ anywhere — depth comes from tonal layering and the navy band, never shadows.
   `--radius-pill` (999px, chips/tags/progress tracks).
 - Each level owns one hue (`--l1` blue, `--l2` teal, `--l3` amber) used on
   its home-card spine, progress fill, prompt plate tint, pills, and its
-  milestone takeover field. `[data-level="1|2|3"]` (set statically on each
-  `.level-card` in the HTML, and dynamically on `#quiz-card` by
-  `renderQuizView()` from `state.level`) resolves `--level`/`--level-tint`/
-  `--level-border`/`--level-dim`/`--level-pale`/`--level-kicker` — style
-  rules should reference these generic aliases, never `--l1`/`--l2`/`--l3`
-  directly, so nothing needs a per-level CSS selector.
+  milestone takeover field. Phrases (see below) has the same kind of hue
+  (`--phrases`, violet) even though it isn't a numbered level, via
+  `data-level="phrases"` rather than a number. `[data-level="1|2|3|phrases"]`
+  (set statically on each `.level-card`/`#phrases-card` in the HTML, and
+  dynamically on `#quiz-card` by `renderQuizView()` from `state.level` for
+  the conjugation levels, statically on `#phrases-card-quiz` since that one
+  never changes) resolves `--level`/`--level-tint`/`--level-border`/
+  `--level-dim`/`--level-pale`/`--level-kicker` — style rules should
+  reference these generic aliases, never `--l1`/`--l2`/`--l3`/`--phrases`
+  directly, so nothing needs a per-level (or per-track) CSS selector.
 - Home cards: a `--level`-colored spine, title + mono fraction badge
   (`answered/total` in progress, `total/total` once done pass or fail, sunk
   to `0/total` when locked or not-started — the badge tracks "how much of
