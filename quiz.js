@@ -19,6 +19,8 @@
   };
 
   const ITEMS_BY_ID = new Map(ITEMS.map((item) => [item.id, item]));
+  const PHRASES_BY_ID = new Map(PHRASES.map((p) => [p.id, p]));
+  const PHRASE_ROUND_TOTAL = PHRASES.length; // 22
 
   // Arabic pronoun for each Lëtzebuergesch person key. The person key
   // itself IS the Lëtzebuergesch pronoun word used in every prompt for that
@@ -143,11 +145,20 @@
       // above, with its own id namespace (hyphenated, never overlaps the
       // dotted conjugation-item ids) and its own session stats, kept apart
       // from `items`/`levelStats` on purpose (see CLAUDE.md's "Phrases"
-      // section). No test/lastTest/unlock concept -- continuous practice
-      // only, always accessible.
+      // section). No unlock concept -- always accessible. Fixed round (all
+      // 22 phrases shuffled once, no repeats, no pass/fail threshold),
+      // mirroring the conjugation levels' TEST_CONFIG pattern in shape
+      // (`round` mirrors `state.test`, `lastRound` mirrors `state.lastTest`)
+      // without actually using TEST_CONFIG, since that machinery is keyed
+      // by numeric `state.level` and Phrases isn't one.
       phrases: {
-        items: {}, // id -> { correct, incorrect, streak }
-        stats: freshLevelStats(), // session stats, same shape as levelStats entries
+        items: {}, // id -> { correct, incorrect, streak } -- not read by the
+        // fixed round's question order (that's a plain shuffle, not
+        // streak-weighted), kept populated anyway as harmless historical
+        // data and in case a future weighted-practice mode wants it.
+        stats: freshLevelStats(), // session stats, same shape as levelStats entries -- accumulates across rounds, never reset except via defaultState()
+        round: null, // { order, index, correctCount, done } -- current fixed-round attempt
+        lastRound: null, // { correctCount, total } -- snapshot of the most recently completed round, for the home card once `round` has moved on
       },
     };
   }
@@ -417,11 +428,17 @@
     phraseStatStreak: document.getElementById("phrase-stat-streak"),
     phraseStatAccuracy: document.getElementById("phrase-stat-accuracy"),
     phraseStatTotal: document.getElementById("phrase-stat-total"),
+    phraseQuestionView: document.getElementById("phrase-question-view"),
     phraseGloss: document.getElementById("phrase-gloss"),
     phrasePrompt: document.getElementById("phrase-prompt"),
     phraseOptions: document.getElementById("phrase-options"),
+    phraseProgressCounter: document.getElementById("phrase-progress-counter"),
     phraseFeedback: document.getElementById("phrase-feedback"),
     phraseNext: document.getElementById("phrase-next"),
+    phraseResultView: document.getElementById("phrase-result-view"),
+    phraseResultScore: document.getElementById("phrase-result-score"),
+    phraseResultMessage: document.getElementById("phrase-result-message"),
+    phraseResultAction: document.getElementById("phrase-result-action"),
   };
 
   let currentItem = null;
@@ -670,11 +687,18 @@
 
   // ---------- phrases ----------
   // A separate content track from the conjugation levels above -- phrase
-  // recognition (multiple choice) rather than verb production (typing), no
-  // fixed test/pass-threshold, always accessible (no unlock gating). See
-  // CLAUDE.md's "Phrases" section for the full rationale. Grading here is
-  // deliberately trivial (exact string equality on which option was
-  // clicked) and never touches matching.js -- keep it that way.
+  // recognition (multiple choice) rather than verb production (typing),
+  // always accessible (no unlock gating). See CLAUDE.md's "Phrases"
+  // section for the full rationale. Grading here is deliberately trivial
+  // (exact string equality on which option was clicked) and never touches
+  // matching.js -- keep it that way.
+  //
+  // Fixed round, same "shuffle once, no repeats" pattern as the
+  // conjugation levels' fixed tests, just without a pass/fail threshold --
+  // state.phrases.round mirrors state.test's shape (order/index/
+  // correctCount/done), and state.phrases.lastRound mirrors
+  // state.lastTest[level], but neither actually goes through TEST_CONFIG:
+  // that machinery is keyed by numeric state.level, and Phrases isn't one.
 
   function getPhraseStats(id) {
     return state.phrases.items[id] || { correct: 0, incorrect: 0, streak: 0 };
@@ -708,6 +732,10 @@
     }
   }
 
+  // Not used by the fixed round below (question order there is a plain
+  // shuffle, not streak-weighted) -- kept as unused fallback architecture
+  // for a possible future "extra practice" mode, exactly the same
+  // reasoning pickWeightedItem is kept around for the conjugation levels.
   let lastPhraseId = null;
 
   function pickWeightedPhrase() {
@@ -717,7 +745,8 @@
   // 1 correct answer + 4 distractors drawn from the OTHER 21 phrases'
   // Arabic answers, reshuffled every question -- not a fixed distractor
   // set. Reuses the same shuffle() used for the conjugation levels' fixed
-  // tests.
+  // tests. Unchanged by the move to a fixed round -- only the question
+  // *order/length* changed, not this.
   function buildPhraseOptions(phrase) {
     const others = shuffle(PHRASES.filter((p) => p.id !== phrase.id));
     const distractors = others.slice(0, 4).map((p) => p.ar);
@@ -742,18 +771,65 @@
     }
   }
 
+  function newPhraseRound() {
+    return {
+      order: shuffle(PHRASES.map((p) => p.id)),
+      index: 0,
+      correctCount: 0,
+      done: false,
+    };
+  }
+
+  // Mirrors ensureTest()'s defensive regeneration -- guards against a
+  // saved round.order referencing a phrase id that no longer exists after
+  // a future data.js edit (a phrase renamed or removed).
+  function ensurePhraseRound() {
+    if (
+      state.phrases.round &&
+      !state.phrases.round.order.every((id) => PHRASES_BY_ID.has(id))
+    ) {
+      state.phrases.round = null;
+    }
+    if (!state.phrases.round) {
+      state.phrases.round = newPhraseRound();
+      saveState();
+    }
+  }
+
+  function showPhraseQuestionView() {
+    els.phraseQuestionView.hidden = false;
+    els.phraseResultView.hidden = true;
+  }
+
+  // No pass/fail concept, so unlike the conjugation levels' result view,
+  // there's only one flavor of this -- no milestone takeover, no
+  // pass/fail message coloring, just the score and a way to go again.
+  function showPhraseResultView() {
+    els.phraseQuestionView.hidden = true;
+    els.phraseResultView.hidden = false;
+
+    const round = state.phrases.round;
+    const pct = Math.round((round.correctCount / PHRASE_ROUND_TOTAL) * 100);
+    els.phraseResultScore.textContent = `${round.correctCount}/${PHRASE_ROUND_TOTAL} (${pct}%)`;
+    els.phraseResultMessage.textContent = "Round complete.";
+    els.phraseResultMessage.className = "result-message";
+  }
+
   let currentPhrase = null;
   let awaitingNextPhrase = false;
 
   function renderPhraseQuestion() {
-    currentPhrase = pickWeightedPhrase();
-    lastPhraseId = currentPhrase.id;
+    ensurePhraseRound();
+    const round = state.phrases.round;
+    currentPhrase = PHRASES_BY_ID.get(round.order[round.index]);
     awaitingNextPhrase = false;
 
     els.phraseGloss.textContent = currentPhrase.en;
     els.phrasePrompt.textContent = currentPhrase.lb;
+    els.phraseProgressCounter.textContent = `${round.index + 1}/${PHRASE_ROUND_TOTAL}`;
     els.phraseFeedback.textContent = "";
     els.phraseFeedback.className = "feedback";
+    els.phraseNext.textContent = "Next →";
     els.phraseNext.hidden = true;
 
     els.phraseOptions.innerHTML = "";
@@ -780,6 +856,10 @@
     const correct = selected === currentPhrase.ar;
     recordPhraseAnswer(currentPhrase.id, correct);
 
+    const round = state.phrases.round;
+    if (correct) round.correctCount += 1;
+    const isLastQuestion = round.index === PHRASE_ROUND_TOTAL - 1;
+
     if (correct) {
       phraseStreakReset = false;
       phrasePendingStreakBump = true;
@@ -798,6 +878,7 @@
 
     els.phraseFeedback.textContent = correct ? "Correct." : "Not quite.";
     els.phraseFeedback.className = "feedback " + (correct ? "correct" : "incorrect");
+    els.phraseNext.textContent = isLastQuestion ? "See results" : "Next →";
     els.phraseNext.hidden = false;
 
     saveState();
@@ -806,34 +887,66 @@
     els.phraseNext.focus();
   }
 
+  // Advances state.phrases.round -- either to the next question, or, on
+  // the last one, ends the round and snapshots it into lastRound (mirrors
+  // the conjugation levels' submit handler advancing state.test).
+  function advancePhraseRound() {
+    const round = state.phrases.round;
+    round.index += 1;
+    if (round.index >= PHRASE_ROUND_TOTAL) {
+      round.done = true;
+      state.phrases.lastRound = { correctCount: round.correctCount, total: PHRASE_ROUND_TOTAL };
+      saveState();
+      showPhraseResultView();
+    } else {
+      saveState();
+      renderPhraseQuestion();
+    }
+  }
+
   function renderPhrasesView() {
     renderPhraseStats();
+    ensurePhraseRound();
+    if (state.phrases.round.done) {
+      showPhraseResultView();
+      return;
+    }
+    showPhraseQuestionView();
     renderPhraseQuestion();
   }
 
-  // Home-card summary: "coverage" (how many of the 22 phrases have been
-  // attempted at least once) stands in for the fraction badge the
-  // conjugation levels use for "how far into the fixed test", since
-  // Phrases has no fixed test to measure progress through. Presence as a
-  // key in state.phrases.items means "answered at least once" (recordPhraseAnswer
-  // always sets it, whether right or wrong).
+  // Mirrors levelCardState()'s shape (variant/label/percent/fraction) but
+  // simpler -- no lock, no pass/fail distinction, since a round always
+  // completes to the same "Completed" state regardless of score. Reads
+  // the live round when one exists; falls back to the lastRound snapshot
+  // once "New round" has replaced it (mirrors state.lastTest[level] for
+  // the same reason: state.test/state.phrases.round get replaced
+  // immediately on retry, so the home card needs its own persistent copy
+  // of the finished attempt to keep showing).
   function phrasesCardState() {
-    const total = PHRASES.length;
-    const seen = PHRASES.filter((p) =>
-      Object.prototype.hasOwnProperty.call(state.phrases.items, p.id)
-    ).length;
-    const stats = state.phrases.stats;
+    const round = state.phrases.round;
 
-    const label =
-      stats.totalAnswered === 0
-        ? "Not started"
-        : `In progress — ${Math.round((stats.totalCorrect / stats.totalAnswered) * 100)}% accuracy so far`;
+    if (round) {
+      if (round.done) {
+        return passedResult(round.correctCount, PHRASE_ROUND_TOTAL, `Completed — ${round.correctCount}/${PHRASE_ROUND_TOTAL}`);
+      }
+      // ensurePhraseRound() creates the round object as soon as the
+      // phrases view is rendered, even before the first question is
+      // answered, so index 0 still reads as "Not started" rather than a
+      // premature 0% "In progress" -- mirrors levelCardState()'s
+      // identical index-0 special case.
+      if (round.index === 0) {
+        return { clickable: true, variant: "not-started", label: "Not started", percent: 0, fraction: { num: 0, den: PHRASE_ROUND_TOTAL } };
+      }
+      const pct = Math.round((round.index / PHRASE_ROUND_TOTAL) * 100);
+      return { clickable: true, variant: "in-progress", label: "In progress", percent: pct, fraction: { num: round.index, den: PHRASE_ROUND_TOTAL } };
+    }
 
-    return {
-      fraction: { num: seen, den: total },
-      label,
-      percent: Math.round((seen / total) * 100),
-    };
+    const last = state.phrases.lastRound;
+    if (last) {
+      return passedResult(last.correctCount, last.total, `Completed — ${last.correctCount}/${last.total}`);
+    }
+    return { clickable: true, variant: "not-started", label: "Not started", percent: 0, fraction: { num: 0, den: PHRASE_ROUND_TOTAL } };
   }
 
   function goToPhrases() {
@@ -1008,6 +1121,7 @@
     // Phrases card is always clickable (no lock/note concept -- see
     // "Phrases" section above), so it skips most of the branching above.
     const ps = phrasesCardState();
+    els.phrasesCard.button.classList.toggle("passed", ps.variant === "passed");
     els.phrasesCard.fraction.textContent = `${ps.fraction.num}/${ps.fraction.den}`;
     els.phrasesCard.status.textContent = ps.label;
     els.phrasesCard.fill.style.width = ps.percent + "%";
@@ -1200,7 +1314,13 @@
     });
   });
   els.phrasesCard.button.addEventListener("click", goToPhrases);
-  els.phraseNext.addEventListener("click", renderPhraseQuestion);
+  els.phraseNext.addEventListener("click", advancePhraseRound);
+  els.phraseResultAction.addEventListener("click", function () {
+    state.phrases.round = newPhraseRound();
+    phraseStreakReset = false; // fresh round -- don't carry the reset color over
+    saveState();
+    render();
+  });
 
   // ---------- init ----------
 

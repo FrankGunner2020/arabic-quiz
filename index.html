@@ -185,16 +185,27 @@
           <span class="pill pill-level">Phrases</span>
         </div>
 
-        <div class="prompt-plate">
-          <p class="gloss" id="phrase-gloss"></p>
-          <p class="prompt" id="phrase-prompt"></p>
+        <div id="phrase-question-view">
+          <div class="prompt-plate">
+            <p class="gloss" id="phrase-gloss"></p>
+            <p class="prompt" id="phrase-prompt"></p>
+          </div>
+
+          <div class="phrase-options" id="phrase-options"></div>
+
+          <p class="progress-counter" id="phrase-progress-counter"></p>
+          <p class="feedback" id="phrase-feedback"></p>
+
+          <button class="phrase-next" id="phrase-next" type="button" hidden>Next →</button>
         </div>
 
-        <div class="phrase-options" id="phrase-options"></div>
-
-        <p class="feedback" id="phrase-feedback"></p>
-
-        <button class="phrase-next" id="phrase-next" type="button" hidden>Next →</button>
+        <div class="result-view" id="phrase-result-view" hidden>
+          <div class="result-plain">
+            <p class="result-score" id="phrase-result-score"></p>
+            <p class="result-message" id="phrase-result-message"></p>
+            <button class="result-action" id="phrase-result-action" type="button">New round</button>
+          </div>
+        </div>
       </div>
     </main>
 

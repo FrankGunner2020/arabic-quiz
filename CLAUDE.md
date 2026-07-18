@@ -21,7 +21,7 @@
 ## Levels & test mechanics
 - Level 1: 13 infinitives. Fixed test, 13 questions shuffled once per attempt, no repeats. Pass = 12/13 (85%+).
 - Level 2: ana/anta/huwa/hiya, 52 items. Fixed test, same pattern. Pass = 45/52 (85%+).
-- Level 3: nahnu/antum/hum, 39 items. Fixed test, same pattern as Levels 1/2. Pass = 34/39 (85%+). It's the last level: passing doesn't unlock a next level (`TEST_CONFIG[3].nextLevel` is `null`), so the result-screen action and the home card land back on Home / show "Completed — X/Y" instead of advancing. The weighted-repetition continuous-practice picker (`weightedPick`/`pickWeightedItem`/`activePool` in quiz.js) still exists but is unreachable by any conjugation level now that all three have a `TEST_CONFIG` entry — no longer purely hypothetical fallback architecture, though: Phrases (see below) actually uses `weightedPick` for real.
+- Level 3: nahnu/antum/hum, 39 items. Fixed test, same pattern as Levels 1/2. Pass = 34/39 (85%+). It's the last level: passing doesn't unlock a next level (`TEST_CONFIG[3].nextLevel` is `null`), so the result-screen action and the home card land back on Home / show "Completed — X/Y" instead of advancing. The weighted-repetition continuous-practice picker (`weightedPick`/`pickWeightedItem`/`pickWeightedPhrase`/`activePool` in quiz.js) still exists but is unreachable by any conjugation level (or, as of the Phrases fixed-round rework, by Phrases either) now that all three levels have `TEST_CONFIG` entries and Phrases has its own fixed round — kept as fallback architecture for a hypothetical future continuous-practice mode, not currently exercised by anything.
 - Shared fixed-test machinery lives in `TEST_CONFIG`, keyed by level — extend this rather than duplicating Level 1/2's logic for any future fixed-test level. Phrases deliberately does NOT use this (see below) — it has no fixed test at all.
 - `state.unlockedLevel` (monotonic) gates navigation, decoupled from `state.level` (which can move backward when replaying an already-passed level from home) — replaying Level 1 never re-locks Level 2. Phrases has no unlock concept at all — always accessible.
 - `state.lastTest[level] = {correctCount, total}` is a read-only snapshot for the home card's "Passed — X/Y" label — doesn't feed scoring/unlock logic.
@@ -34,10 +34,9 @@
 A separate content track from the numbered conjugation levels above, not a
 continuation of them — different skill (phrase recognition vs. verb
 production), different question format (multiple choice vs. typing), no
-fixed test/pass-threshold, no unlock gating. Deliberately architected as
-its own thing rather than squeezed into the `state.level`/`TEST_CONFIG`
-system, which is fixed-test-shaped and doesn't fit multiple choice or
-"no target length" well.
+unlock gating. Deliberately architected as its own thing rather than
+squeezed into the `state.level`/`TEST_CONFIG` system, which is keyed by
+numeric level and doesn't fit multiple choice well.
 - Data: `PHRASES` in data.js — 22 plain objects `{ id, lb, en, ar }`
   (Lëtzebuergesch text, English gloss, Arabic Fusha phonetic answer). `id`
   is a hyphenated slug (e.g. `"gudde-moien"`), never derived from `lb`/`en`
@@ -54,38 +53,64 @@ system, which is fixed-test-shaped and doesn't fit multiple choice or
   phrases, takes 4 of their `ar` values as distractors, adds the correct
   `ar`, and shuffles the resulting 5 — freshly reshuffled every question,
   not a fixed distractor set. Reuses the same `shuffle()` the fixed tests
-  use for their question order.
-- Continuous weighted-repetition practice — the same mechanic Level 3 used
-  before it became a fixed test, and the reason that mechanic was kept
-  around as "fallback architecture" in the first place. `pickWeightedPhrase()`
-  and `pickWeightedItem()` are both now thin wrappers around a shared
-  `weightedPick(pool, excludeId, getStats)` (same streak-weighting formula,
-  `max(0.3, 3 - streak)`, and no-immediate-repeat rule as before) instead of
-  duplicating that logic. This can become a fixed test later (add a
-  `TEST_CONFIG` entry, a phrase pool, etc.) without restructuring the picker.
-- State lives in `state.phrases = { items, stats }` — its own namespace,
-  separate from `state.items`/`state.levelStats` even though there's no
-  actual id-collision risk (hyphenated vs. dotted ids). Kept apart on
-  purpose, for architectural independence, not because it was technically
-  required. `state.phrases.stats` accumulates forever, same as `levelStats`
-  (never reset except via `defaultState()`). `recordPhraseAnswer()` still
-  calls `touchPracticeDay()` — the header's Day-N/answered-today line is a
-  global practice measure across every content track, not conjugation-only.
-  It does NOT call `checkMilestones()` — phrases have no verb-mastery/export
-  equivalent.
+  use for their question order. Unchanged by the fixed-round rework below —
+  only the question order/length changed, not the format.
+- Fixed round, not continuous practice: all 22 phrases shuffled once per
+  round, presented exactly once each, no repeats, stopping after the 22nd
+  with a plain completion screen (score out of 22, a "New round" button) —
+  no pass/fail threshold, since this isn't gated content. Same "shuffle
+  once, no repeats" shape as the conjugation levels' fixed tests, but does
+  NOT go through `TEST_CONFIG` (that's keyed by numeric `state.level`).
+  `state.phrases.round` (`{ order, index, correctCount, done }`) mirrors
+  `state.test`'s shape; `state.phrases.lastRound` (`{ correctCount, total }`)
+  mirrors `state.lastTest[level]` for the same reason: `round` gets replaced
+  immediately by "New round", so the home card needs its own persistent
+  snapshot of the just-finished attempt. `newPhraseRound()`/
+  `ensurePhraseRound()` mirror `newTest()`/`ensureTest()`, including the
+  defensive regeneration if a saved round references a phrase id that no
+  longer exists. `advancePhraseRound()` (the Next-button handler) mirrors
+  the conjugation levels' submit-handler advance logic: index++, and on the
+  last question, set `done`, snapshot into `lastRound`, show the result view.
+- The weighted-repetition picker (`pickWeightedPhrase()`/`getPhraseStats()`)
+  is NOT used by the fixed round's question order (that's a plain shuffle)
+  — kept as unused fallback architecture for a possible future "extra
+  practice" mode, same reasoning `pickWeightedItem` is kept around for the
+  conjugation levels. `weightedPick(pool, excludeId, getStats)` is the
+  shared engine both wrap. Per-phrase stats (`state.phrases.items[id]`,
+  including `streak`) are still recorded on every answer even though
+  nothing currently reads them for selection — harmless, and there in case
+  a future mode wants them.
+- State lives in `state.phrases = { items, stats, round, lastRound }` — its
+  own namespace, separate from `state.items`/`state.levelStats`/`state.test`/
+  `state.lastTest` even though there's no actual id-collision risk
+  (hyphenated vs. dotted ids). Kept apart on purpose, for architectural
+  independence, not because it was technically required. `state.phrases.stats`
+  accumulates forever across rounds, same as `levelStats` accumulates across
+  retries (never reset except via `defaultState()`). `recordPhraseAnswer()`
+  still calls `touchPracticeDay()` — the header's Day-N/answered-today line
+  is a global practice measure across every content track, not
+  conjugation-only. It does NOT call `checkMilestones()` — phrases have no
+  verb-mastery/export equivalent.
 - Home card (`#phrases-card`) reuses the exact `.level-card` markup/CSS as
   the numbered levels, with its own hue (`--phrases`, a violet, added
   alongside `--l1/--l2/--l3` with the same tint/border/dim/pale/kicker
   companion tokens, resolved via `[data-level="phrases"]` in the same alias
-  block). Its fraction badge is "coverage" (phrases attempted at least
-  once, tracked by presence as a key in `state.phrases.items` / 22 total)
-  rather than a fixed-test fraction, since there's no fixed test to measure
-  progress through.
+  block). `phrasesCardState()` mirrors `levelCardState()`'s shape
+  (variant/label/percent/fraction) but simpler — no lock, and only one
+  "done" flavor (`passedResult()`, reused directly) since there's no
+  pass/fail distinction to make. Fraction badge is `answered/total` while a
+  round is in progress and `total/total` once done, exactly like the
+  numbered levels' badge (no longer a "coverage" stand-in now that there's
+  a real fixed-length round to measure progress through).
 - Quiz view (`#phrases-view-root`) is a fully separate DOM region, not
   layered into `#quiz-view-root`. It reuses the SAME CSS classes
   (`.session-stats`, `.quiz-shell`, `.quiz-panel`, `.q-pills`,
-  `.prompt-plate`) for visual consistency with the conjugation levels, but
-  none of the underlying render functions, state, or grading are shared.
+  `.prompt-plate`, `.progress-counter`, and — for the completion screen —
+  `.result-view`/`.result-score`/`.result-message`/`.result-action`) for
+  visual consistency with the conjugation levels, but none of the
+  underlying render functions, state, or grading are shared. No milestone
+  takeover for the completion screen — just the plain result-view styling,
+  since there's no pass/fail to celebrate/distinguish.
 - The "Word list" header button hides while `view === "phrases"` — that
   feature is specific to conjugation content and would be confusing to
   leave visible/functional while browsing phrases.

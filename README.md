@@ -119,17 +119,16 @@ actually a fragment of a different verb entirely (verstoen's "yafham", to
 understand). Precision over convenience.
 
 **Per-item streaks feed milestones; the weighted-repetition picker itself
-isn't used by any conjugation level.** Each item (an infinitive or a
+isn't used by anything right now.** Each item (an infinitive or a
 conjugated form) tracks a running correct-streak regardless of which level
 it's answered in — that streak is what milestone mastery (see below) is
 based on. `quiz.js` also has a weighted-random item picker built for
 continuous, open-ended practice, excluding whatever was just asked and
 weighting so lower-streak items come up more often
 (`weight = max(0.3, 3 - streak)`), but since all three conjugation levels
-are fixed shuffle-once-no-repeats tests, none of them call it — it's kept
-as ready-made architecture for any level that wants that style of practice
-instead, and Phrases (see below) is exactly that: it uses this same picker
-for real, not just as a fallback sitting unused.
+*and* Phrases (see below) are now fixed shuffle-once-no-repeats rounds,
+nothing currently calls it — it's kept as ready-made architecture for any
+future level or mode that wants that style of open-ended practice instead.
 
 **Stats persist across sessions, scoped per level.** Per-item correct/
 incorrect counts and streaks are tracked globally (used for weighting and
@@ -176,14 +175,17 @@ was clicked — none of the spelling-variant/typo-tolerance machinery the
 conjugation levels use applies, on purpose; there's nothing to type; so
 there's nothing to grade the spelling of.
 
-**Continuous practice, no fixed test.** Like the conjugation levels used
-to be before Level 3 became a fixed test, Phrases just keeps going:
-weighted-random selection (lower-streak phrases come up more often, same
-`weight = max(0.3, 3 - streak)` formula and never-repeat-the-last-one rule
-as the levels' shared picker — see above), no target length, no pass
-threshold. The home card's fraction badge shows "coverage" instead (how
-many of the 22 phrases you've been asked at least once), since there's no
-fixed-length test to show progress through.
+**A fixed round, same shape as the conjugation levels' fixed tests.** All
+22 phrases are shuffled once at the start of a round and presented exactly
+once each, with a counter under the prompt ("1/22" .. "22/22") — no
+repeats, no endless loop. After the 22nd question a plain completion
+screen shows the score out of 22 and a "New round" button that shuffles a
+fresh attempt; there's no pass/fail threshold, since this isn't gated
+content — the round is just done, not "passed" or "failed." The session
+stats (streak/accuracy/answered) carry over from round to round rather
+than resetting, same as the conjugation levels' stats accumulate across
+retries. The home card's fraction badge works exactly like the numbered
+levels' now too (`answered/total` mid-round, `total/total` once done).
 
 ## Data model
 
